@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1">
+<title>Mini Carrera 2D</title>
+<style>
+  :root {
+    --ui-bg: rgba(0,0,0,.55);
+    --ui-text: #fff;
+    --accent: #00d1b2;
+  }
+  html, body {
+    margin: 0; height: 100%; background: #0b0e13; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+    color: var(--ui-text);
+  }
+  .wrap {
+    position: relative; height: 100%; display: grid; place-items: center; padding: 10px;
+  }
+  canvas { 
+    background: #2a2a2a; 
+    box-shadow: 0 10px 40px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,255,255,.05);
+    border-radius: 10px;
+    max-width: 100%; height: auto;
+    touch-action: none;
+  }
+  .hud {
+    position:absolute; inset: 0; pointer-events: none; display:flex; flex-direction:column;
+  }
+  .topbar {
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    padding:10px; pointer-events:auto;
+  }
+  .pill {
+    background: var(--ui-bg); padding: 6px 10px; border-radius: 999px; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  .btn {
+    background: var(--ui-bg); border: 1px solid rgba(255,255,255,.15); color: var(--ui-text);
+    padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight:700;
+    transition: transform .05s ease, background .2s ease, border-color .2s ease;
+  }
+  .btn:active { transform: translateY(1px) scale(.99); }
+  .btn--accent { border-color: var(--accent); }
+  .centerOverlay {
+    margin-top:auto; margin-bottom:auto; display:grid; place-items:center; gap:12px; pointer-events:auto;
+  }
+  .panel {
+    background: rgba(10,12,18,.85); border: 1px solid rgba(255,255,255,.1); padding: 18px; border-radius: 14px;
+    text-align:center; backdrop-filter: blur(6px);
+  }
+  .panel h1 { margin:.2rem 0 .6rem; font-size: 1.4rem; }
+  .panel p { margin:.2rem 0; opacity:.85 }
+  .row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .kbd { background: #111; border: 1px solid #444; padding: 2px 6px; border-radius: 6px; font-weight:700; }
+
+  /* Controles táctiles */
+  .touch {
+    position:absolute; bottom: 10px; left: 0; right: 0; display:flex; justify-content:space-between; gap:10px;
+    padding: 0 10px; pointer-events:auto;
+  }
+  .dpad, .rpad {
+    display:grid; gap:8px;
+  }
+  .dpad { grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px 60px; }
+  .rpad { grid-template-columns: 1fr; }
+  .tbtn {
+    width:60px; height:60px; background: var(--ui-bg); border: 1px solid rgba(255,255,255,.2);
+    border-radius: 10px; display:grid; place-items:center; font-weight:900; user-select:none;
+  }
+  .tbtn:active { background: rgba(255,255,255,.15); }
+
+  @media (min-width: 860px) {
+    .touch { display:none; }
+  }
+  a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="game" width="480" height="720" aria-label="Juego de carreras 2D"></canvas>
+
+  <div class="hud" aria-hidden="false">
+    <div class="topbar">
+      <div class="pill" id="scorePill">Puntaje: 0</div>
+      <div class="pill" id="bestPill">Mejor: 0</div>
+      <div class="row">
+        <button class="btn" id="pauseBtn" title="Pausar/Reanudar (P)">⏯️</button>
+        <button class="btn" id="muteBtn" title="Silencio">🔈</button>
+        <button class="btn btn--accent" id="restartBtn" title="Reiniciar (R)">↻</button>
+      </div>
+    </div>
+
+    <div class="centerOverlay" id="menu">
+      <div class="panel">
+        <h1>🏁 Mini Carrera 2D</h1>
+        <p>Esquivá autos y sumá puntos. Dificultad progresiva.</p>
+        <p><span class="kbd">←</span> <span class="kbd">→</span> / <span class="kbd">A</span> <span class="kbd">D</span> para moverte • <span class="kbd">P</span> pausa • <span class="kbd">R</span> reinicia</p>
+        <div style="height:8px"></div>
+        <button class="btn btn--accent" id="startBtn">Jugar</button>
+      </div>
+    </div>
+
+    <!-- Controles táctiles -->
+    <div class="touch" id="touchControls">
+      <div class="dpad" style="visibility:hidden"></div>
+      <div class="dpad" id="leftPad">
+        <div></div><div class="tbtn" data-dir="up">↑</div><div></div>
+        <div class="tbtn" data-dir="left">←</div><div></div><div class="tbtn" data-dir="right">→</div>
+        <div></div><div class="tbtn" data-dir="down">↓</div><div></div>
+      </div>
+      <div class="rpad">
+        <div class="tbtn" id="touchPause">⏯️</div>
+        <div class="tbtn" id="touchRestart">↻</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ====== Configuración base (espacio lógico independiente del pixel real) ======
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  // Tamaño lógico del mundo. Se escala a cualquier pantalla manteniendo proporción.
+  const WORLD_W = 480;
+  const WORLD_H = 720;
+
+  // Manejo de alta densidad de pixeles
+  function fitCanvas() {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const cssW = Math.min(window.innerWidth - 20, WORLD_W * (window.innerHeight - 20) / WORLD_H);
+    const cssH = cssW * WORLD_H / WORLD_W;
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.width = Math.floor(WORLD_W * dpr);
+    canvas.height = Math.floor(WORLD_H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // volver al espacio lógico
+  }
+  window.addEventListener('resize', fitCanvas, { passive: true });
+  fitCanvas();
+
+  // ====== Estado del juego ======
+  const state = {
+    running: false,
+    paused: false,
+    gameOver: false,
+    score: 0,
+    best: Number(localStorage.getItem('miniRaceBest') || 0),
+    time: 0,             // tiempo total (s)
+    spawnTimer: 0,       // control de spawns
+    laneOffset: 0,       // para animar líneas discontinuas
+    rngSeed: Math.random() * 1e9 | 0,
+    muted: false,
+  };
+
+  // ====== Utilidades ======
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function rand() { // LCG simple y determinista para spawns consistentes durante la sesión
+    state.rngSeed = (1103515245 * state.rngSeed + 12345) & 0x7fffffff;
+    return (state.rngSeed >>> 0) / 0x7fffffff;
+  }
+
+  // ====== Carretera y carriles ======
+  const road = {
+    x: 60,               // margen izquierdo del asfalto
+    width: WORLD_W - 120,
+    laneCount: 3,
+    stripH: 30,          // alto de cada segmento de línea discontinua
+    stripGap: 30,
+    colorAsphalt: '#3a3a3a',
+    colorEdge: '#f3f3f3',
+    colorLane: '#d9d9d9',
+    grassL: '#1b5e20',
+    grassR: '#0f4d17',
+  };
+
+  const laneWidth = () => road.width / road.laneCount;
+  const laneCenterX = (lane) => road.x + laneWidth() * (lane + 0.5);
+
+  // ====== Jugador ======
+  const player = {
+    x: WORLD_W/2,
+    y: WORLD_H*0.78,
+    w: 44,
+    h: 84,
+    vx: 0,
+    accel: 1800,
+    maxVx: 360,
+    friction: 1400,
+    colorBody: '#00d1b2',
+    colorShadow: 'rgba(0,0,0,.35)',
+    hitboxShrink: 0.82, // colisiones un poco indulgentes
+  };
+
+  function resetPlayer() {
+    player.x = laneCenterX(1);
+    player.y = WORLD_H*0.78;
+    player.vx = 0;
+  }
+
+  // ====== Obstáculos ======
+  const obstacles = [];
+  function spawnObstacle(difficulty) {
+    // Elige 1-2 autos enemigos, preferentemente en carriles distintos
+    const count = rand() < Math.min(0.35, difficulty*0.08) ? 2 : 1;
+    const taken = new Set();
+    for (let i=0; i<count; i++) {
+      let lane;
+      let tries = 0;
+      do { lane = (rand()*road.laneCount)|0; tries++; } while (taken.has(lane) && tries<6);
+      taken.add(lane);
+      const w = 44 + (rand()*10|0);
+      const h = 84 + (rand()*6|0);
+      const speed = 180 + difficulty*40 + rand()*50; // px/s hacia abajo
+      obstacles.push({
+        x: laneCenterX(lane),
+        y: -120 - i*140, // escalonar un poco
+        w, h,
+        vy: speed,
+        colorBody: ['#ff5252','#ffca28','#42a5f5','#ab47bc','#8bc34a'][ (rand()*5)|0 ],
+      });
+    }
+  }
+
+  // ====== Entrada (teclado + táctil) ======
+  const input = { left:false, right:false, up:false, down:false };
+  const keyMap = {
+    ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
+    a: 'left', d: 'right', w: 'up', s: 'down', A: 'left', D: 'right', W: 'up', S: 'down'
+  };
+  window.addEventListener('keydown', (e) => {
+    if (keyMap[e.key]) { input[keyMap[e.key]] = true; e.preventDefault(); }
+    if (e.key === 'p' || e.key === 'P') togglePause();
+    if (e.key === 'r' || e.key === 'R') restart();
+  }, { passive: false });
+  window.addEventListener('keyup', (e) => { if (keyMap[e.key]) { input[keyMap[e.key]] = false; e.preventDefault(); } }, { passive: false });
+
+  // táctil
+  function bindTouchButton(el, on, off) {
+    const start = (ev)=>{ on(); ev.preventDefault(); };
+    const end = (ev)=>{ off(); ev.preventDefault(); };
+    el.addEventListener('touchstart', start, { passive:false });
+    el.addEventListener('touchend', end, { passive:false });
+    el.addEventListener('touchcancel', end, { passive:false });
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', end);
+    el.addEventListener('mouseleave', end);
+  }
+  document.querySelectorAll('#leftPad .tbtn').forEach(btn=>{
+    const dir = btn.dataset.dir;
+    bindTouchButton(btn, ()=> input[dir]=true, ()=> input[dir]=false);
+  });
+  bindTouchButton(document.getElementById('touchPause'), ()=> togglePause(), ()=>{});
+  bindTouchButton(document.getElementById('touchRestart'), ()=> restart(), ()=>{});
+
+  // ====== UI botones ======
+  const scorePill = document.getElementById('scorePill');
+  const bestPill  = document.getElementById('bestPill');
+  const pauseBtn  = document.getElementById('pauseBtn');
+  const muteBtn   = document.getElementById('muteBtn');
+  const restartBtn= document.getElementById('restartBtn');
+  const startBtn  = document.getElementById('startBtn');
+  const menu      = document.getElementById('menu');
+
+  startBtn.addEventListener('click', ()=> start());
+  restartBtn.addEventListener('click', ()=> restart());
+  pauseBtn.addEventListener('click', ()=> togglePause());
+  muteBtn.addEventListener('click', ()=> { state.muted = !state.muted; refreshMuteIcon(); beep(260, 0.05); });
+  function refreshMuteIcon(){ muteBtn.textContent = state.muted ? '🔇' : '🔈'; }
+  bestPill.textContent = 'Mejor: ' + state.best;
+  refreshMuteIcon();
+
+  // ====== Audio (beeps ligeros con WebAudio, sin assets) ======
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx) { try { audioCtx = new AudioCtx(); } catch(_) {} }
+  }
+  function beep(freq=440, dur=0.08, type='square', vol=0.08){
+    if (state.muted) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.value = vol;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  // ====== Bucle principal ======
+  let lastTs = 0;
+  function start(){
+    menu.style.display = 'none';
+    state.running = true; state.paused = false; state.gameOver = false;
+    state.score = 0; state.time = 0; state.spawnTimer = 0; state.laneOffset = 0; obstacles.length = 0;
+    resetPlayer();
+    lastTs = performance.now();
+    beep(700, .08, 'sine', .06);
+    requestAnimationFrame(loop);
+  }
+  function restart(){
+    if (!state.running) return start();
+    state.gameOver = false; state.paused = false;
+    state.score = 0; state.time = 0; state.spawnTimer = 0; state.laneOffset = 0; obstacles.length = 0;
+    resetPlayer();
+    menu.style.display = 'none';
+    beep(520, .07, 'sine', .06);
+  }
+  function togglePause(){
+    if (!state.running || state.gameOver) return;
+    state.paused = !state.paused;
+    if (state.paused) { beep(300, .07); }
+    else { beep(500, .07); lastTs = performance.now(); requestAnimationFrame(loop); }
+  }
+
+  function gameOver(){
+    state.gameOver = true; state.paused = false; state.running = true;
+    state.best = Math.max(state.best, Math.floor(state.score));
+    localStorage.setItem('miniRaceBest', String(state.best));
+    bestPill.textContent = 'Mejor: ' + state.best;
+    beep(120, .2, 'sawtooth', .07);
+    // Mostrar overlay de fin
+    menu.innerHTML = `
+      <div class="panel">
+        <h1>💥 ¡Choque!</h1>
+        <p>Puntaje: <b>${Math.floor(state.score)}</b></p>
+        <p>Mejor: <b>${state.best}</b></p>
+        <div style="height:8px"></div>
+        <div class="row">
+          <button class="btn btn--accent" id="againBtn">Jugar de nuevo</button>
+          <button class="btn" id="shareBtn">Compartir</button>
+        </div>
+      </div>`;
+    menu.style.display = 'grid';
+    document.getElementById('againBtn').addEventListener('click', ()=> restart());
+    document.getElementById('shareBtn').addEventListener('click', ()=>{
+      const text = `Hice ${Math.floor(state.score)} puntos en Mini Carrera 2D 🏁 ¿me ganás?`;
+      if (navigator.share) navigator.share({ text, title:'Mini Carrera 2D' }).catch(()=>{});
+      else navigator.clipboard.writeText(text).then(()=> alert('Copiado al portapapeles 👍'));
+    });
+  }
+
+  function loop(ts){
+    if (!state.running || state.paused) return;
+    const dt = Math.min(0.033, (ts - lastTs)/1000); // clamp para estabilidad
+    lastTs = ts;
+
+    update(dt);
+    draw();
+
+    if (!state.gameOver) requestAnimationFrame(loop);
+  }
+
+  // ====== Update ======
+  function update(dt){
+    // dificultad crece con el tiempo
+    state.time += dt;
+    const difficulty = 1 + state.time * 0.22;
+
+    // movimiento jugador
+    const ax = (input.left ? -1 : 0) + (input.right ? 1 : 0);
+    if (ax !== 0) {
+      player.vx += ax * player.accel * dt;
+    } else {
+      // fricción
+      if (Math.abs(player.vx) < 10) player.vx = 0;
+      else player.vx += -Math.sign(player.vx) * player.friction * dt;
+    }
+    player.vx = clamp(player.vx, -player.maxVx, player.maxVx);
+    player.x += player.vx * dt;
+
+    // límites de la carretera
+    const leftBound = road.x + player.w*0.5 + 2;
+    const rightBound = road.x + road.width - player.w*0.5 - 2;
+    player.x = clamp(player.x, leftBound, rightBound);
+
+    // spawns
+    state.spawnTimer -= dt;
+    const baseSpawn = 1.0; // segundos
+    const spawnInterval = Math.max(0.35, baseSpawn - (difficulty*0.06));
+    if (state.spawnTimer <= 0) {
+      spawnObstacle(difficulty);
+      state.spawnTimer = spawnInterval;
+    }
+
+    // mover obstáculos
+    for (let i=obstacles.length-1; i>=0; i--){
+      const o = obstacles[i];
+      o.y += o.vy * dt;
+      if (o.y - o.h/2 > WORLD_H + 100) {
+        obstacles.splice(i,1);
+        state.score += 5; // pasó uno
+        beep(880, .03, 'triangle', .03);
+      }
+    }
+
+    // colisiones
+    for (const o of obstacles) {
+      if (intersect(player, o)) {
+        gameOver();
+        break;
+      }
+    }
+
+    // puntaje por tiempo
+    state.score += dt * (10 + difficulty*1.2);
+
+    // animar líneas de carril (velocidad aparente)
+    state.laneOffset = (state.laneOffset + dt * (220 + difficulty*30)) % (road.stripH + road.stripGap);
+
+    // actualizar HUD
+    scorePill.textContent = 'Puntaje: ' + Math.floor(state.score);
+  }
+
+  function intersect(a, b){
+    const aw = a.w * a.hitboxShrink, ah = a.h * a.hitboxShrink;
+    const ax1 = a.x - aw/2, ay1 = a.y - ah/2, ax2 = a.x + aw/2, ay2 = a.y + ah/2;
+    const bx1 = b.x - b.w/2, by1 = b.y - b.h/2, bx2 = b.x + b.w/2, by2 = b.y + b.h/2;
+    return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1;
+  }
+
+  // ====== Render ======
+  function draw(){
+    // fondo (césped)
+    ctx.fillStyle = road.grassL;
+    ctx.fillRect(0,0, road.x, WORLD_H);
+    ctx.fillStyle = road.grassR;
+    ctx.fillRect(road.x + road.width, 0, WORLD_W - road.x - road.width, WORLD_H);
+
+    // asfalto
+    ctx.fillStyle = road.colorAsphalt;
+    ctx.fillRect(road.x, 0, road.width, WORLD_H);
+
+    // bordes
+    ctx.fillStyle = road.colorEdge;
+    ctx.fillRect(road.x - 6, 0, 6, WORLD_H);
+    ctx.fillRect(road.x + road.width, 0, 6, WORLD_H);
+
+    // líneas de carril discontinuas
+    ctx.fillStyle = road.colorLane;
+    for (let i=1; i<road.laneCount; i++){
+      const x = road.x + i*laneWidth() - 2;
+      let y = -state.laneOffset;
+      while (y < WORLD_H) {
+        ctx.fillRect(x, y, 4, road.stripH);
+        y += road.stripH + road.stripGap;
+      }
+    }
+
+    // obstáculos
+    for (const o of obstacles) drawCar(o.x, o.y, o.w, o.h, o.colorBody);
+
+    // jugador (con sombra)
+    drawShadow(player.x, player.y + 8, player.w*0.9, player.h*0.9, player.colorShadow);
+    drawCar(player.x, player.y, player.w, player.h, player.colorBody);
+  }
+
+  function drawShadow(x,y,w,h,color){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = color;
+    roundRectPath(-w/2, -h/2, w, h, 10);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCar(x,y,w,h, bodyColor){
+    ctx.save();
+    ctx.translate(x, y);
+
+    // cuerpo
+    ctx.fillStyle = bodyColor;
+    roundRectPath(-w/2, -h/2, w, h, 10);
+    ctx.fill();
+
+    // parabrisas
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    roundRectPath(-w*0.35, -h*0.32, w*0.7, h*0.2, 6);
+    ctx.fill();
+
+    // capó y techo
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    roundRectPath(-w*0.33, -h*0.05, w*0.66, h*0.36, 8);
+    ctx.fill();
+
+    // ruedas
+    ctx.fillStyle = '#111';
+    roundRectPath(-w*0.55, -h*0.36, w*0.18, h*0.30, 4); ctx.fill();
+    roundRectPath( w*0.37, -h*0.36, w*0.18, h*0.30, 4); ctx.fill();
+    roundRectPath(-w*0.55,  h*0.06, w*0.18, h*0.30, 4); ctx.fill();
+    roundRectPath( w*0.37,  h*0.06, w*0.18, h*0.30, 4); ctx.fill();
+
+    // luces
+    ctx.fillStyle = '#ffd54f';
+    roundRectPath(-w*0.22, -h*0.5, w*0.18, h*0.06, 2); ctx.fill();
+    roundRectPath( w*0.04, -h*0.5, w*0.18, h*0.06, 2); ctx.fill();
+    ctx.fillStyle = '#ff7043';
+    roundRectPath(-w*0.22,  h*0.44, w*0.18, h*0.06, 2); ctx.fill();
+    roundRectPath( w*0.04,  h*0.44, w*0.18, h*0.06, 2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function roundRectPath(x, y, w, h, r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.lineTo(x+w-rr, y);
+    ctx.quadraticCurveTo(x+w, y, x+w, y+rr);
+    ctx.lineTo(x+w, y+h-rr);
+    ctx.quadraticCurveTo(x+w, y+h, x+w-rr, y+h);
+    ctx.lineTo(x+rr, y+h);
+    ctx.quadraticCurveTo(x, y+h, x, y+h-rr);
+    ctx.lineTo(x, y+rr);
+    ctx.quadraticCurveTo(x, y, x+rr, y);
+    ctx.closePath();
+  }
+
+  // Mostrar menú inicial
+  menu.style.display = 'grid';
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Juego 2D – Niño esquivando virus y atrapando corazones</title>
+<style>
+  :root{
+    --bg:#0f172a;          /* fondo */
+    --panel:#111827cc;     /* HUD */
+    --text:#e5e7eb;        /* texto */
+    --accent:#22c55e;      /* vida */
+    --danger:#ef4444;      /* daño */
+    --gold:#f59e0b;        /* puntaje */
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 50% 10%, #1f2937, var(--bg));font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+  .wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
+  .game{
+    position:relative;
+    width:min(92vw,800px);
+    aspect-ratio:9/16;           /* formato vertical estilo móvil */
+    background:linear-gradient(#0b1226 0%, #0a0f1d 40%, #0a0e1a 100%);
+    border-radius:16px;
+    box-shadow:0 20px 60px #0008, inset 0 0 0 1px #fff1;
+    overflow:hidden;
+  }
+  canvas{width:100%;height:100%;display:block}
+
+  /* HUD superior */
+  .hud{
+    position:absolute;inset:12px 12px auto 12px;
+    display:flex;gap:12px;align-items:center;justify-content:space-between;
+    color:var(--text);z-index:2
+  }
+  .score{
+    font-weight:700;font-size:18px;padding:6px 10px;border-radius:10px;background:var(--panel);
+  }
+  .life{
+    flex:1;display:flex;align-items:center;gap:8px;margin-left:12px;background:var(--panel);padding:8px;border-radius:10px;
+  }
+  .life-label{opacity:.8;font-size:12px}
+  .life-bar{
+    position:relative;flex:1;height:12px;border-radius:8px;background:#ffffff22;overflow:hidden
+  }
+  .life-bar>span{
+    position:absolute;inset:0;width:100%;background:linear-gradient(90deg,var(--accent),#16a34a);transition:width .15s ease;
+  }
+
+  /* Mensajes centrados (inicio / pausa / game over) */
+  .overlay{
+    position:absolute;inset:0;display:grid;place-items:center;z-index:3;pointer-events:none;
+  }
+  .card{
+    pointer-events:auto;
+    background:linear-gradient(180deg,#0b1226,#0a0d18);
+    color:var(--text);
+    padding:22px 20px;border-radius:14px;
+    box-shadow:0 20px 60px #000c, inset 0 0 0 1px #ffffff10;
+    text-align:center;max-width:85%;animation:pop .2s ease-out
+  }
+  .card h1{margin:0 0 6px;font-size:22px;letter-spacing:.2px}
+  .card p{margin:6px 0 14px;opacity:.9;line-height:1.35}
+  .card .big{font-size:18px;font-weight:700;margin:0 0 12px;color:var(--gold)}
+  .btn{
+    display:inline-block;padding:10px 14px;border-radius:10px;font-weight:700;
+    background:#3b82f6;color:white;text-decoration:none;cursor:pointer;border:none;
+    box-shadow:0 6px 20px #3b82f633;
+  }
+  .hint{font-size:12px;opacity:.8;margin-top:8px}
+
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+
+  /* Mini instrucción inferior */
+  .footer-help{
+    position:absolute;inset:auto 12px 10px 12px;color:#cbd5e1;font-size:12px;opacity:.8;z-index:2;
+    background:var(--panel);padding:6px 10px;border-radius:10px;backdrop-filter:blur(3px)
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="game" id="game">
+    <canvas id="canvas" width="450" height="800" aria-label="Área de juego"></canvas>
+
+    <div class="hud">
+      <div class="score" id="score">Puntos: 0</div>
+      <div class="life">
+        <span class="life-label">Vida</span>
+        <div class="life-bar"><span id="lifeFill" style="width:100%"></span></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <div class="card" id="startCard">
+        <h1>Niño vs Virus</h1>
+        <p>Atrapa <strong>corazones</strong> (+10) y esquiva <strong>virus</strong> (-25).</p>
+        <p class="big">Sobrevive y logra el mayor puntaje</p>
+        <button class="btn" id="startBtn">Jugar</button>
+        <div class="hint">Controles: ← → o A/D &nbsp;•&nbsp; R = Reiniciar &nbsp;•&nbsp; P = Pausa</div>
+      </div>
+    </div>
+
+    <div class="footer-help">Dificultad sube con el tiempo: caen más rápido y aparecen más seguido.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ====== Configuración general ======
+  const cvs = document.getElementById('canvas');
+  const ctx = cvs.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const lifeFill = document.getElementById('lifeFill');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const startCard = document.getElementById('startCard');
+
+  const W = cvs.width;
+  const H = cvs.height;
+
+  const GAME = {
+    running: false,
+    paused: false,
+    started: false,
+    gameOver: false,
+    score: 0,
+    life: 100,
+    time: 0,            // tiempo total (s)
+  };
+
+  // ====== Jugador ======
+  const player = {
+    x: W * 0.5,
+    y: H - 70,
+    w: 56,
+    h: 56,
+    speed: 400,         // px/s
+    moveLeft: false,
+    moveRight: false,
+  };
+
+  // ====== Objetos que caen ======
+  const pool = []; // {x,y,r,type,speed,rotation}
+  const TYPES = {
+    HEART: 'heart',
+    VIRUS: 'virus'
+  };
+
+  // Config base de dificultad (se ajustan dinámicamente)
+  const diff = {
+    fallSpeedBase: 140,      // velocidad base de caída (px/s)
+    fallSpeedGain: 18,       // incremento por cada 10s
+    spawnBase: 0.9,          // intervalo base de spawn (s)
+    spawnMin: 0.25,          // mínimo posible (s)
+    spawnGain: 0.08,         // reducción por cada 10s (s)
+    heartChance: 0.42,       // prob. de corazón vs virus
+  };
+  let spawnTimer = 0;
+
+  // ====== Utilidades ======
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rand = (a, b) => Math.random() * (b - a) + a;
+
+  function resetGame() {
+    GAME.running = false;
+    GAME.paused = false;
+    GAME.started = true;
+    GAME.gameOver = false;
+    GAME.score = 0;
+    GAME.life = 100;
+    GAME.time = 0;
+    player.x = W * 0.5;
+    pool.length = 0;
+    spawnTimer = 0;
+    hideOverlay();
+    updateHUD();
+    GAME.running = true;
+  }
+
+  function showGameOver() {
+    GAME.gameOver = true;
+    GAME.running = false;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <h1>Game Over</h1>
+      <p>Puntaje final</p>
+      <p class="big">⭐ ${GAME.score} puntos</p>
+      <button class="btn" id="restartBtn">Reintentar</button>
+      <div class="hint">Consejo: mantente debajo de huecos y muévete en ráfagas cortas.</div>
+    `;
+    overlay.innerHTML = '';
+    overlay.appendChild(card);
+    overlay.style.display = 'grid';
+
+    document.getElementById('restartBtn').onclick = () => {
+      resetGame();
+    };
+  }
+
+  function showOverlay() {
+    overlay.style.display = 'grid';
+  }
+  function hideOverlay() {
+    overlay.style.display = 'none';
+  }
+
+  function updateHUD() {
+    scoreEl.textContent = `Puntos: ${GAME.score}`;
+    lifeFill.style.width = `${clamp(GAME.life,0,100)}%`;
+    // Color dinámico vida
+    const g = clamp(GAME.life / 100, 0, 1);
+    lifeFill.style.background = `linear-gradient(90deg, hsl(${120*g}, 70%, 45%), hsl(${110*g},70%,38%))`;
+  }
+
+  // ====== Dibujo ======
+  function drawBackground() {
+    // Suelo simple
+    ctx.fillStyle = '#0b1226';
+    ctx.fillRect(0, H - 40, W, 40);
+
+    // Estrellas suaves parallax
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#9ca3af';
+    for (let i = 0; i < 60; i++) {
+      const x = (i * 73 + Math.sin((GAME.time+i)*0.3)*50) % W;
+      const y = (i * 41 + Math.cos((GAME.time+i)*0.2)*30) % (H-80);
+      ctx.fillRect((x+W)%W, (y+H)%H, 2, 2);
+    }
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    const {x,y,w,h} = player;
+    // Dibujamos un niño estilo "stickman" simpático
+    ctx.save();
+    ctx.translate(x, y);
+
+    // sombra
+    ctx.fillStyle = '#00000033';
+    ctx.beginPath();
+    ctx.ellipse(0, h/2+10, w*0.35, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // cuerpo
+    ctx.fillStyle = '#60a5fa';
+    roundRect(ctx, -w/2, -h/2, w, h*0.65, 10, true, false);
+
+    // cabeza
+    ctx.beginPath();
+    ctx.fillStyle = '#f5d0ae';
+    ctx.arc(0, -h*0.45, w*0.22, 0, Math.PI*2);
+    ctx.fill();
+
+    // gorra
+    ctx.beginPath();
+    ctx.fillStyle = '#22c55e';
+    ctx.arc(0, -h*0.52, w*0.26, Math.PI, Math.PI*2);
+    ctx.fill();
+    ctx.fillRect(-w*0.03, -h*0.56, w*0.22, w*0.06);
+
+    // brazos
+    ctx.strokeStyle = '#f5d0ae'; ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(-w*0.3, -h*0.1); ctx.lineTo(-w*0.05, 0);
+    ctx.moveTo(w*0.3, -h*0.1); ctx.lineTo(w*0.05, 0);
+    ctx.stroke();
+
+    // piernas
+    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(-w*0.18, h*0.15); ctx.lineTo(-w*0.18, h*0.45);
+    ctx.moveTo(w*0.18, h*0.15);  ctx.lineTo(w*0.18, h*0.45);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r, fill, stroke){
+    if (w < 2*r) r = w/2;
+    if (h < 2*r) r = h/2;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  function drawObject(o){
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.rotate(o.rotation||0);
+
+    if (o.type === TYPES.HEART){
+      // corazón
+      const r = o.r;
+      ctx.fillStyle = '#ef476f';
+      ctx.beginPath();
+      ctx.moveTo(0, r*0.35);
+      ctx.bezierCurveTo(r*1.2, -r*0.6,  r*0.7, -r*1.2, 0, -r*0.6);
+      ctx.bezierCurveTo(-r*0.7, -r*1.2, -r*1.2, -r*0.6, 0, r*0.35);
+      ctx.fill();
+
+      // brillo
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(-r*0.35, -r*0.6, r*0.3, r*0.18, -0.5, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      // virus (círculo con púas)
+      const r = o.r;
+      ctx.fillStyle = '#22c55e';
+      ctx.strokeStyle = '#15803d';
+      ctx.lineWidth = 3;
+
+      // púas
+      for (let i=0;i<10;i++){
+        const ang = (i/10)*Math.PI*2;
+        const x1 = Math.cos(ang)*r*0.9;
+        const y1 = Math.sin(ang)*r*0.9;
+        const x2 = Math.cos(ang)*r*1.35;
+        const y2 = Math.sin(ang)*r*1.35;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x2,y2, r*0.12, 0, Math.PI*2); ctx.fill();
+      }
+      // núcleo
+      ctx.beginPath();
+      ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+
+      // ojitos malévolos 😈
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath(); ctx.ellipse(-r*0.28,-r*0.15,r*0.14,r*0.18,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse( r*0.28,-r*0.15,r*0.14,r*0.18,0,0,Math.PI*2); ctx.fill();
+      ctx.fillRect(-r*0.22, r*0.18, r*0.44, r*0.14);
+    }
+
+    ctx.restore();
+  }
+
+  // ====== Lógica ======
+  function spawnObject() {
+    const type = Math.random() < diff.heartChance ? TYPES.HEART : TYPES.VIRUS;
+    const r = type === TYPES.HEART ? rand(14,22) : rand(18,26);
+    const x = rand(r+8, W - (r+8));
+    const y = -r - 10;
+    const speed = currentFallSpeed() * rand(0.9, 1.2);
+    pool.push({x,y,r,type,speed, rotation: rand(-0.2,0.2)});
+  }
+
+  function currentFallSpeed(){
+    // Crece con el tiempo: cada 10s sube un bloque
+    const blocks = Math.floor(GAME.time / 10);
+    return diff.fallSpeedBase + blocks * diff.fallSpeedGain;
+  }
+  function currentSpawnInterval(){
+    // Disminuye con el tiempo pero nunca menor a spawnMin
+    const blocks = Math.floor(GAME.time / 10);
+    return Math.max(diff.spawnMin, diff.spawnBase - blocks * diff.spawnGain);
+  }
+
+  function update(dt){
+    if (!GAME.running || GAME.paused) return;
+
+    GAME.time += dt;
+    spawnTimer -= dt;
+    if (spawnTimer <= 0){
+      spawnObject();
+      spawnTimer = currentSpawnInterval() * rand(0.7, 1.3);
+    }
+
+    // Movimiento jugador
+    let dir = 0;
+    if (player.moveLeft) dir -= 1;
+    if (player.moveRight) dir += 1;
+    player.x += dir * player.speed * dt;
+    player.x = clamp(player.x, player.w*0.5+8, W - (player.w*0.5+8));
+
+    // Actualizar objetos
+    for (let i=pool.length-1; i>=0; i--){
+      const o = pool[i];
+      o.y += o.speed * dt;
+      o.rotation += (o.type===TYPES.VIRUS ? 0.9 : 0.6) * dt;
+
+      // Colisión con jugador (AABB vs círculo aproximado)
+      if (circleRectOverlap(o.x, o.y, o.r, player.x - player.w/2, player.y - player.h/2, player.w, player.h*0.8)){
+        if (o.type === TYPES.HEART){
+          GAME.score += 10;
+        } else {
+          GAME.life -= 25;
+          // pequeño knock y flash
+          screenFlash();
+        }
+        updateHUD();
+        pool.splice(i,1);
+        continue;
+      }
+
+      // Fuera de pantalla
+      if (o.y - o.r > H + 40){
+        pool.splice(i,1);
+      }
+    }
+
+    if (GAME.life <= 0 && !GAME.gameOver){
+      GAME.life = 0;
+      updateHUD();
+      showGameOver();
+    }
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    drawBackground();
+
+    // objetos
+    for (const o of pool) drawObject(o);
+
+    // jugador
+    drawPlayer();
+  }
+
+  // Colisión círculo-rectángulo
+  function circleRectOverlap(cx, cy, cr, rx, ry, rw, rh){
+    const nearestX = clamp(cx, rx, rx+rw);
+    const nearestY = clamp(cy, ry, ry+rh);
+    const dx = cx - nearestX;
+    const dy = cy - nearestY;
+    return (dx*dx + dy*dy) <= cr*cr;
+  }
+
+  // Pequeño flash de daño
+  let flashT = 0;
+  function screenFlash(){
+    flashT = 0.18;
+  }
+  function drawFlash(dt){
+    if (flashT > 0){
+      flashT -= dt;
+      const a = Math.max(0, flashT/0.18) * 0.35;
+      ctx.fillStyle = `rgba(239,68,68,${a})`;
+      ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  // ====== Bucle principal ======
+  let last = 0;
+  function loop(ts){
+    const t = ts/1000;
+    const dt = Math.min(0.033, t - last || 0.016);
+    last = t;
+
+    update(dt);
+    render();
+    drawFlash(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ====== Controles ======
+  const key = {};
+  function setMoves(){
+    player.moveLeft  = !!(key['ArrowLeft'] || key['a'] || key['A']);
+    player.moveRight = !!(key['ArrowRight']|| key['d'] || key['D']);
+  }
+  window.addEventListener('keydown', (e)=>{
+    if (['ArrowLeft','ArrowRight','a','A','d','D',' '].includes(e.key)) e.preventDefault();
+    key[e.key] = true; setMoves();
+
+    if (!GAME.started && (e.key === ' ' || e.key === 'Enter')) startBtn.click();
+
+    if (e.key === 'p' || e.key === 'P'){
+      if (GAME.started && !GAME.gameOver){
+        GAME.paused = !GAME.paused;
+        if (GAME.paused){
+          showPause();
+        } else {
+          hideOverlay();
+        }
+      }
+    }
+    if (e.key === 'r' || e.key === 'R'){
+      if (GAME.started) resetGame();
+    }
+  });
+  window.addEventListener('keyup', (e)=>{ key[e.key] = false; setMoves(); });
+
+  // Soporte táctil simple (arrastrar)
+  const gameEl = document.getElementById('game');
+  let pointerActive = false;
+  gameEl.addEventListener('pointerdown', (e)=>{
+    pointerActive = true;
+    moveByPointer(e);
+  });
+  gameEl.addEventListener('pointermove', (e)=>{
+    if (pointerActive) moveByPointer(e);
+  });
+  window.addEventListener('pointerup', ()=> pointerActive=false);
+  function moveByPointer(e){
+    const rect = cvs.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width * W;
+    player.x = clamp(px, player.w*0.5+8, W - (player.w*0.5+8));
+  }
+
+  // Pausa
+  function showPause(){
+    overlay.style.display = 'grid';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <h1>Pausa</h1>
+      <p>Presiona <b>P</b> para continuar</p>
+      <div class="hint">También puedes reiniciar con <b>R</b></div>
+    `;
+    overlay.innerHTML = '';
+    overlay.appendChild(card);
+  }
+
+  // Botón iniciar
+  startBtn.addEventListener('click', ()=>{
+    resetGame();
+  });
+
+  // Asegurar que el panel inicial se vea al entrar
+  overlay.style.display = 'grid';
+
+})();
+</script>
+</body>
+</html>
