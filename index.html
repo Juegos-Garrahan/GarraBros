@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú de Juegos</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: white;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .menu {
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 40px;
+        }
+
+        .juegos {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .juego {
+            padding: 30px 20px;
+            border: none;
+            border-radius: 15px;
+            background: #2563eb;
+            color: white;
+            font-size: 1.3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .juego:hover {
+            background: #3b82f6;
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 500px) {
+            .juegos {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <main class="menu">
+        <h1>🎮 Juegos</h1>
+
+        <div class="juegos">
+            <button class="juego" onclick="abrirJuego('Autitos.html')">
+                🕹️ Autitos
+            </button>
+
+            <button class="juego" onclick="abrirJuego('Virus.html')">
+                🚀 Virus
+            </button>
+
+            <button class="juego" onclick="abrirJuego('Laberinto.html')">
+                🧩 Laberinto
+            </button>
+
+            <button class="juego" onclick="abrirJuego('juego4.html')">
+                ⚔️ Juego 4
+            </button>
+        </div>
+    </main>
+
+    <script>
+        function abrirJuego(juego) {
+            window.location.href = juego;
+        }
+    </script>
+
+</body>
+</html>
