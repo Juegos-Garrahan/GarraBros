@@ -1,2 +1,2 @@
 # GarraBros
-GarraBross is a lovely game for children to play
+Hecho con ♥ por el equipo de desarrollo del hosp Garrahan
