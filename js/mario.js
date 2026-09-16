@@ -1,0 +1,635 @@
+/*
+  Estructura recomendada:
+
+  /juego/
+    index.html
+    /assets/
+      nene.png
+      nena.png
+      fondo.png
+
+  Si no ponés nene.png y nena.png, el juego usa dibujos fallback generados por código.
+  Tamaño sugerido de los sprites: 40x64 o proporcional.
+*/
+
+const GAME_WIDTH = 960;
+const GAME_HEIGHT = 540;
+const TILE = 48;
+const WORLD_WIDTH = 5200;
+
+let selectedPlayer = 'player_nene';
+
+class BootScene extends Phaser.Scene {
+    constructor() {
+        super('BootScene');
+    }
+
+    preload() {
+        // Intentá cargar sprites reales. Si no existen, se usan los generados por código.
+        this.load.image('asset_nene', 'assets/nene.png');
+        this.load.image('asset_nena', 'assets/nena.png');
+        this.load.image('asset_background', 'assets/fondo.png');
+    }
+
+    create() {
+        this.createFallbackTextures();
+
+        // Si las imágenes reales cargaron bien, se usan como textura de jugador.
+        if (this.textures.exists('asset_nene')) {
+            this.textures.renameTexture('asset_nene', 'player_nene');
+        }
+
+        if (this.textures.exists('asset_nena')) {
+            this.textures.renameTexture('asset_nena', 'player_nena');
+        }
+
+        this.scene.start('MenuScene');
+    }
+
+    createFallbackTextures() {
+        this.createPlayerTexture('player_nene', 0x2f8cff, 0xffffff, 0x222222);
+        this.createPlayerTexture('player_nena', 0xff70aa, 0xffffff, 0x552244);
+        this.createGroundTexture();
+        this.createBrickTexture();
+        this.createQuestionTexture();
+        this.createCoinTexture();
+        this.createEnemyTexture();
+        this.createPipeTexture();
+        this.createFlagTexture();
+        this.createCloudTexture();
+        this.createBushTexture();
+    }
+
+    createPlayerTexture(key, bodyColor, faceColor, hairColor) {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        g.fillStyle(faceColor, 1);
+        g.fillCircle(20, 14, 11);
+
+        g.fillStyle(hairColor, 1);
+        g.fillCircle(14, 8, 4);
+        g.fillCircle(19, 6, 5);
+        g.fillCircle(25, 8, 4);
+
+        g.fillStyle(bodyColor, 1);
+        g.fillRoundedRect(8, 25, 24, 24, 6);
+
+        g.fillStyle(faceColor, 1);
+        g.fillRoundedRect(2, 27, 8, 18, 3);
+        g.fillRoundedRect(30, 27, 8, 18, 3);
+
+        g.fillStyle(0x24304f, 1);
+        g.fillRoundedRect(10, 47, 8, 15, 3);
+        g.fillRoundedRect(22, 47, 8, 15, 3);
+
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(16, 14, 1.7);
+        g.fillCircle(24, 14, 1.7);
+
+        g.lineStyle(1, 0x000000, 1);
+        g.beginPath();
+        g.arc(20, 18, 4, 0, Math.PI, false);
+        g.strokePath();
+
+        g.generateTexture(key, 40, 64);
+        g.destroy();
+    }
+
+    createGroundTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xc9783a, 1);
+        g.fillRect(0, 0, TILE, TILE);
+        g.lineStyle(2, 0x7a3f1d, 1);
+        g.strokeRect(0, 0, TILE, TILE);
+        g.lineStyle(1, 0x9f5629, 1);
+        g.lineBetween(0, 16, TILE, 16);
+        g.lineBetween(0, 32, TILE, 32);
+        g.generateTexture('ground', TILE, TILE);
+        g.destroy();
+    }
+
+    createBrickTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xb95f35, 1);
+        g.fillRect(0, 0, TILE, TILE);
+        g.lineStyle(2, 0x74301d, 1);
+        g.strokeRect(0, 0, TILE, TILE);
+        g.lineStyle(2, 0x74301d, 1);
+        g.lineBetween(0, 16, TILE, 16);
+        g.lineBetween(0, 32, TILE, 32);
+        g.lineBetween(24, 0, 24, 16);
+        g.lineBetween(12, 16, 12, 32);
+        g.lineBetween(36, 16, 36, 32);
+        g.lineBetween(24, 32, 24, 48);
+        g.generateTexture('brick', TILE, TILE);
+        g.destroy();
+    }
+
+    createQuestionTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xf7b733, 1);
+        g.fillRect(0, 0, TILE, TILE);
+        g.lineStyle(3, 0x8f5a00, 1);
+        g.strokeRect(0, 0, TILE, TILE);
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(8, 8, 2);
+        g.fillCircle(40, 8, 2);
+        g.fillCircle(8, 40, 2);
+        g.fillCircle(40, 40, 2);
+        g.generateTexture('question', TILE, TILE);
+        g.destroy();
+    }
+
+    createCoinTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xffd84a, 1);
+        g.fillEllipse(16, 16, 20, 28);
+        g.lineStyle(3, 0xe7a800, 1);
+        g.strokeEllipse(16, 16, 20, 28);
+        g.generateTexture('coin', 32, 32);
+        g.destroy();
+    }
+
+    createEnemyTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0x7b4a2e, 1);
+        g.fillRoundedRect(0, 10, 40, 30, 12);
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(13, 23, 5);
+        g.fillCircle(27, 23, 5);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(13, 23, 2);
+        g.fillCircle(27, 23, 2);
+        g.fillStyle(0x111111, 1);
+        g.fillRect(6, 40, 9, 6);
+        g.fillRect(25, 40, 9, 6);
+        g.generateTexture('enemy', 40, 48);
+        g.destroy();
+    }
+
+    createPipeTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0x22aa3d, 1);
+        g.fillRect(12, 20, 72, 76);
+        g.fillStyle(0x3ee65c, 1);
+        g.fillRect(0, 0, 96, 28);
+        g.lineStyle(4, 0x0b6620, 1);
+        g.strokeRect(0, 0, 96, 28);
+        g.strokeRect(12, 20, 72, 76);
+        g.generateTexture('pipe', 96, 96);
+        g.destroy();
+    }
+
+    createFlagTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xffffff, 1);
+        g.fillRect(6, 0, 6, 210);
+        g.fillStyle(0x31a8ff, 1);
+        g.fillTriangle(12, 8, 92, 32, 12, 58);
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(45, 32, 9);
+        g.generateTexture('flag', 100, 220);
+        g.destroy();
+    }
+
+    createCloudTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xffffff, .95);
+        g.fillCircle(24, 30, 18);
+        g.fillCircle(48, 20, 22);
+        g.fillCircle(74, 30, 18);
+        g.fillRoundedRect(18, 30, 70, 18, 9);
+        g.generateTexture('cloud', 100, 56);
+        g.destroy();
+    }
+
+    createBushTexture() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0x2eb84d, 1);
+        g.fillCircle(20, 32, 18);
+        g.fillCircle(48, 22, 24);
+        g.fillCircle(76, 32, 18);
+        g.fillRoundedRect(12, 32, 76, 20, 10);
+        g.generateTexture('bush', 100, 58);
+        g.destroy();
+    }
+}
+
+class MenuScene extends Phaser.Scene {
+    constructor() {
+        super('MenuScene');
+    }
+
+    create() {
+        this.cameras.main.setBackgroundColor('#7ec8ff');
+
+        this.add.text(GAME_WIDTH / 2, 70, 'Mini Plataformero', {
+            fontFamily: 'Arial',
+            fontSize: '46px',
+            color: '#ffffff',
+            stroke: '#184a70',
+            strokeThickness: 7
+        }).setOrigin(0.5);
+
+        this.add.text(GAME_WIDTH / 2, 132, 'Elegí con quién jugar', {
+            fontFamily: 'Arial',
+            fontSize: '25px',
+            color: '#15364e'
+        }).setOrigin(0.5);
+
+        this.createCharacterCard(365, 290, 'player_nene', 'Nene');
+        this.createCharacterCard(595, 290, 'player_nena', 'Nena');
+
+        this.add.text(GAME_WIDTH / 2, 465, 'Controles: ESPACIO para saltar · R para reiniciar', {
+            fontFamily: 'Arial',
+            fontSize: '18px',
+            color: '#15364e'
+        }).setOrigin(0.5);
+    }
+
+    createCharacterCard(x, y, textureKey, labelText) {
+        const card = this.add.rectangle(x, y, 170, 210, 0xffffff, .9)
+            .setStrokeStyle(4, 0x184a70)
+            .setInteractive({ useHandCursor: true });
+
+        const sprite = this.add.image(x, y - 35, textureKey).setScale(1.7);
+        const label = this.add.text(x, y + 75, labelText, {
+            fontFamily: 'Arial',
+            fontSize: '24px',
+            color: '#15364e'
+        }).setOrigin(0.5);
+
+        const choose = () => {
+            selectedPlayer = textureKey;
+            this.scene.start('GameScene');
+        };
+
+        card.on('pointerdown', choose);
+        sprite.setInteractive({ useHandCursor: true }).on('pointerdown', choose);
+        label.setInteractive({ useHandCursor: true }).on('pointerdown', choose);
+
+        card.on('pointerover', () => card.setFillStyle(0xffefad, 1));
+        card.on('pointerout', () => card.setFillStyle(0xffffff, .9));
+    }
+}
+
+class GameScene extends Phaser.Scene {
+    constructor() {
+        super('GameScene');
+    }
+
+    create() {
+        this.score = 0;
+        this.finished = false;
+        this.dead = false;
+
+        this.physics.world.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT);
+        this.cameras.main.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT);
+        this.cameras.main.setBackgroundColor('#7ec8ff');
+
+        this.createBackground();
+        this.createLevel();
+        this.createPlayer();
+        this.createEnemies();
+        this.createCoins();
+        this.createFlag();
+        this.createUI();
+        this.createControls();
+
+        this.physics.add.collider(this.player, this.platforms);
+        this.physics.add.collider(this.enemies, this.platforms);
+        this.physics.add.collider(this.player, this.pipes);
+        this.physics.add.collider(this.enemies, this.pipes);
+        this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+        this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, null, this);
+        this.physics.add.overlap(this.player, this.flagZone, this.win, null, this);
+
+        this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    }
+
+    createBackground() {
+        // Fondo principal opcional.
+        // Poné tu imagen en: assets/fondo.png
+        // Recomendado: 960x540 o proporcional. Se dibuja fijo detrás del nivel.
+        if (this.textures.exists('asset_background')) {
+            this.add.image(0, 0, 'asset_background')
+                .setOrigin(0, 0)
+                .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
+                .setScrollFactor(0)
+                .setAlpha(0.28);
+        }
+
+        for (let i = 0; i < 22; i++) {
+            this.add.image(170 + i * 260, Phaser.Math.Between(55, 145), 'cloud')
+                .setScrollFactor(.35)
+                .setAlpha(.9);
+        }
+
+        for (let i = 0; i < 18; i++) {
+            this.add.image(260 + i * 310, GAME_HEIGHT - 86, 'bush')
+                .setScrollFactor(.75)
+                .setAlpha(.85);
+        }
+    }
+
+    createLevel() {
+        this.platforms = this.physics.add.staticGroup();
+        this.pipes = this.physics.add.staticGroup();
+
+        // Piso con algunos huecos para que tenga onda plataformera.
+        const gaps = [
+            [1344, 1440],
+            [2304, 2400],
+            [3888, 3984]
+        ];
+
+        for (let x = TILE / 2; x < WORLD_WIDTH; x += TILE) {
+            const inGap = gaps.some(([a, b]) => x >= a && x <= b);
+            if (!inGap) {
+                this.platforms.create(x, GAME_HEIGHT - TILE / 2, 'ground');
+            }
+        }
+
+        // Bloques aéreos. No es un calco bloque por bloque; está armado con la misma lógica de nivel clásico.
+        const brickBlocks = [
+            [768, 300], [816, 300], [864, 300],
+            [1152, 300], [1200, 300], [1248, 300],
+            [1632, 252], [1680, 252], [1728, 252],
+            [2064, 300], [2112, 300], [2160, 300], [2208, 300],
+            [2784, 252], [2832, 252], [2880, 252],
+            [3312, 300], [3360, 300], [3408, 300],
+            [3648, 252], [3696, 252],
+            [4320, 300], [4368, 300], [4416, 300]
+        ];
+
+        const questionBlocks = [
+            [624, 300], [672, 300],
+            [960, 252],
+            [1536, 300],
+            [1968, 300],
+            [2640, 300], [2688, 300],
+            [3216, 252],
+            [4080, 300],
+            [4560, 252]
+        ];
+
+        brickBlocks.forEach(([x, y]) => {
+            this.platforms.create(x, y, 'brick');
+        });
+
+        questionBlocks.forEach(([x, y]) => {
+            this.platforms.create(x, y, 'question');
+        });
+
+        // Tuberías/obstáculos.
+        const pipes = [
+            [1056, GAME_HEIGHT - 96],
+            [1872, GAME_HEIGHT - 96],
+            [2496, GAME_HEIGHT - 96],
+            [3504, GAME_HEIGHT - 96],
+            [4704, GAME_HEIGHT - 96]
+        ];
+
+        pipes.forEach(([x, y]) => {
+            const pipe = this.pipes.create(x, y, 'pipe');
+            pipe.body.setSize(96, 96);
+            pipe.body.setOffset(0, 0);
+        });
+
+        // Escalera final aproximada.
+        this.createStairs(4848, GAME_HEIGHT - TILE * 1.5, 5, 1);
+        this.createStairs(5088, GAME_HEIGHT - TILE * 1.5, 4, -1);
+    }
+
+    createStairs(startX, baseY, height, direction) {
+        for (let step = 0; step < height; step++) {
+            for (let block = 0; block <= step; block++) {
+                const x = startX + (step * TILE * direction);
+                const y = baseY - block * TILE;
+                this.platforms.create(x, y, 'ground');
+            }
+        }
+    }
+
+    createPlayer() {
+        this.player = this.physics.add.sprite(120, 280, selectedPlayer);
+        this.player.setCollideWorldBounds(false);
+        this.player.setBounce(0.02);
+        this.player.body.setSize(30, 60);
+        this.player.body.setOffset(5, 4);
+    }
+
+    createEnemies() {
+        this.enemies = this.physics.add.group();
+
+        const positions = [
+            [720, GAME_HEIGHT - 92, -55],
+            [1500, GAME_HEIGHT - 92, 65],
+            [2050, GAME_HEIGHT - 92, -60],
+            [3000, GAME_HEIGHT - 92, 60],
+            [3750, GAME_HEIGHT - 92, -65],
+            [4480, GAME_HEIGHT - 92, 65]
+        ];
+
+        positions.forEach(([x, y, vx]) => {
+            const enemy = this.enemies.create(x, y, 'enemy');
+            enemy.setVelocityX(vx);
+            enemy.setBounce(1, 0);
+            enemy.setCollideWorldBounds(false);
+            enemy.body.setSize(34, 30);
+            enemy.body.setOffset(3, 16);
+        });
+    }
+
+    createCoins() {
+        this.coins = this.physics.add.group({ allowGravity: false, immovable: true });
+
+        const coins = [
+            [610, 245], [660, 245], [710, 245],
+            [960, 165],
+            [1150, 245], [1200, 245], [1250, 245],
+            [1535, 245],
+            [1640, 195], [1690, 195], [1740, 195],
+            [1970, 245],
+            [2100, 245], [2160, 245], [2220, 245],
+            [2640, 245], [2690, 245],
+            [2830, 195], [2880, 195],
+            [3215, 165],
+            [3360, 245], [3410, 245],
+            [4080, 245],
+            [4320, 245], [4370, 245], [4420, 245],
+            [4560, 195]
+        ];
+
+        coins.forEach(([x, y]) => {
+            const coin = this.coins.create(x, y, 'coin');
+            coin.setCircle(14);
+        });
+    }
+
+    createFlag() {
+        this.flag = this.add.image(5020, GAME_HEIGHT - 170, 'flag');
+        this.physics.add.existing(this.flag, true);
+
+        this.flagZone = this.physics.add.staticImage(5030, GAME_HEIGHT - 130, null);
+        this.flagZone.setVisible(false);
+        this.flagZone.body.setSize(80, 210);
+    }
+
+    createUI() {
+        this.scoreText = this.add.text(18, 14, 'Puntos: 0', {
+            fontFamily: 'Arial',
+            fontSize: '24px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setScrollFactor(0);
+
+        this.infoText = this.add.text(18, 45, 'El personaje avanza solo. Saltá con ESPACIO.', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setScrollFactor(0);
+    }
+
+    createControls() {
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.keys = this.input.keyboard.addKeys({
+            A: Phaser.Input.Keyboard.KeyCodes.A,
+            D: Phaser.Input.Keyboard.KeyCodes.D,
+            W: Phaser.Input.Keyboard.KeyCodes.W,
+            SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
+            R: Phaser.Input.Keyboard.KeyCodes.R
+        });
+    }
+
+    update() {
+        if (this.keys && Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+            this.scene.start('MenuScene');
+            return;
+        }
+
+        if (this.finished || this.dead) return;
+
+        if (this.player.y > GAME_HEIGHT + 120) {
+            this.die();
+            return;
+        }
+
+        const speed = 215;
+        const jump = -570;
+
+        const wantsJump =
+            this.cursors.space.isDown ||
+            this.cursors.up.isDown ||
+            this.keys.SPACE.isDown ||
+            this.keys.W.isDown;
+
+        // Auto-runner: el personaje avanza solo hacia adelante.
+        this.player.setVelocityX(speed);
+        this.player.setFlipX(false);
+
+        if (wantsJump && this.player.body.blocked.down) {
+            this.player.setVelocityY(jump);
+        }
+
+        this.enemies.children.iterate(enemy => {
+            if (!enemy || !enemy.body) return;
+
+            if (enemy.y > GAME_HEIGHT + 80) {
+                enemy.disableBody(true, true);
+                return;
+            }
+
+            if (enemy.body.blocked.left) {
+                enemy.setVelocityX(Math.abs(enemy.body.velocity.x || 60));
+            }
+
+            if (enemy.body.blocked.right) {
+                enemy.setVelocityX(-Math.abs(enemy.body.velocity.x || 60));
+            }
+        });
+    }
+
+    collectCoin(player, coin) {
+        coin.disableBody(true, true);
+        this.score += 10;
+        this.scoreText.setText('Puntos: ' + this.score);
+    }
+
+    hitEnemy(player, enemy) {
+        if (this.finished || this.dead) return;
+
+        const stomped = player.body.velocity.y > 0 && player.y < enemy.y - 14;
+
+        if (stomped) {
+            enemy.disableBody(true, true);
+            player.setVelocityY(-270);
+            this.score += 25;
+            this.scoreText.setText('Puntos: ' + this.score);
+            return;
+        }
+
+        this.die();
+    }
+
+    die() {
+        if (this.dead) return;
+        this.dead = true;
+        this.physics.pause();
+        this.player.setTint(0xff4444);
+
+        this.showCenterMessage('Perdiste :(', 'Presioná R para volver al menú');
+    }
+
+    win() {
+        if (this.finished || this.dead) return;
+        this.finished = true;
+        this.physics.pause();
+        this.player.setTint(0xffff99);
+
+        this.showCenterMessage('¡Llegaste a la bandera!', 'Puntaje final: ' + this.score + ' · Presioná R para reiniciar');
+    }
+
+    showCenterMessage(title, subtitle) {
+        const centerX = this.cameras.main.scrollX + GAME_WIDTH / 2;
+
+        this.add.rectangle(centerX, 240, 620, 170, 0x000000, .55)
+            .setStrokeStyle(3, 0xffffff);
+
+        this.add.text(centerX, 210, title, {
+            fontFamily: 'Arial',
+            fontSize: '42px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 6
+        }).setOrigin(.5);
+
+        this.add.text(centerX, 270, subtitle, {
+            fontFamily: 'Arial',
+            fontSize: '22px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(.5);
+    }
+}
+
+const config = {
+    type: Phaser.AUTO,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+    parent: 'game-container',
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 950 },
+            debug: false
+        }
+    },
+    scene: [BootScene, MenuScene, GameScene]
+};
+
+new Phaser.Game(config);
