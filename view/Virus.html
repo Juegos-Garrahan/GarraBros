@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<title>Niño vs Virus</title>
+
+<link rel="stylesheet" href="/css/virus.css">
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <div class="game" id="game">
+
+    <canvas
+      id="canvas"
+      width="450"
+      height="800"
+      aria-label="Juego Niño vs Virus">
+    </canvas>
+    <!-- HUD -->
+
+    <div class="hud">
+
+      <div class="hud-box score">
+        <small>PUNTAJE</small>
+        <span id="score">⭐ 0</span>
+        <small id="recordLabel">Récord: 0</small>
+      </div>
+
+      <div class="hud-box life">
+
+        <div class="life-top">
+          <span>❤️ VIDA</span>
+          <span id="lifeText">100%</span>
+        </div>
+
+        <div class="life-bar">
+          <div class="life-fill" id="lifeFill"></div>
+        </div>
+
+      </div>
+
+      <div class="hud-box level">
+        <small>NIVEL</small>
+        <strong id="level">1</strong>
+      </div>
+
+      <button
+        class="menu-btn"
+        id="menuBtn"
+        aria-label="Volver al menú">
+        ☰
+      </button>
+
+    </div>
+
+    <!-- OVERLAY -->
+
+    <div class="overlay" id="overlay">
+
+      <div class="card" id="startCard">
+
+        <div class="character-preview">
+          <canvas
+            id="previewCanvas"
+            width="120"
+            height="120"
+            aria-hidden="true">
+          </canvas>
+        </div>
+
+        <h1>Niño <span>vs</span> Virus</h1>
+
+        <p class="game-description">
+          ¡Bienvenido a Niño vs Virus! 🧒
+          <br><br>
+
+          Ayudá a nuestro amigo a atrapar
+          corazones ❤️ y esquivar los virus 🦠.
+          <br><br>
+
+          Sumá puntos, superá desafíos
+          y disfrutá de una aventura llena de diversión.
+          <br><br>
+
+          <strong>¡Cada partida es una nueva aventura!</strong>
+        </p>
+
+        <div class="instructions">
+          <span>❤️ +10</span>
+          <span>🦠 -25 vida</span>
+        </div>
+
+        <div class="big-score">
+          ⭐ <span id="startRecord">0</span> récord
+        </div>
+
+        <button class="btn" id="startBtn">
+          ▶ JUGAR
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- CONTROLES TÁCTILES -->
+
+    <div class="mobile-controls">
+
+      <button
+        class="control-btn"
+        id="leftBtn"
+        aria-label="Mover a la izquierda">
+        ◀
+      </button>
+
+      <button
+        class="control-btn"
+        id="rightBtn"
+        aria-label="Mover a la derecha">
+        ▶
+      </button>
+
+    </div>
+
+    <div class="footer-help">
+      La dificultad aumenta con el tiempo
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/js/virus.js"></script>
+
+</body>
+</html>
