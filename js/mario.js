@@ -1,23 +1,9 @@
-/*
-  Estructura recomendada:
-
-  /juego/
-    index.html
-    /assets/
-      nene.png
-      nena.png
-      fondo.png
-
-  Si no ponés nene.png y nena.png, el juego usa dibujos fallback generados por código.
-  Tamaño sugerido de los sprites: 40x64 o proporcional.
-*/
-
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 540;
 const TILE = 48;
 const WORLD_WIDTH = 5200;
 
-let selectedPlayer = 'player_nene';
+let selectedPlayer = 'game_nene';
 
 class BootScene extends Phaser.Scene {
     constructor() {
@@ -25,30 +11,116 @@ class BootScene extends Phaser.Scene {
     }
 
     preload() {
-        // Intentá cargar sprites reales. Si no existen, se usan los generados por código.
-        this.load.image('asset_nene', 'assets/nene.png');
-        this.load.image('asset_nena', 'assets/nena.png');
-        this.load.image('asset_background', 'assets/fondo.png');
+
+        // MENÚ
+        this.load.image(
+            'menu_background',
+            '../images/hospital.png'
+        );
+
+        this.load.image(
+            'menu_nene',
+            '../images/nene_corriendo.png'
+        );
+
+        this.load.image(
+            'menu_nena',
+            '../images/nena_corriendo.png'
+        );
+
+        // JUEGO
+        this.load.image(
+            'game_nene',
+            '../images/nene_corriendo.png'
+        );
+
+        this.load.image(
+            'game_nena',
+            '../images/nena_corriendo.png'
+        );
+
+        // FONDO
+        this.load.image(
+            'asset_background',
+            '../images/hospital.png'
+        );
     }
 
     create() {
+
         this.createFallbackTextures();
-
-        // Si las imágenes reales cargaron bien, se usan como textura de jugador.
-        if (this.textures.exists('asset_nene')) {
-            this.textures.renameTexture('asset_nene', 'player_nene');
-        }
-
-        if (this.textures.exists('asset_nena')) {
-            this.textures.renameTexture('asset_nena', 'player_nena');
-        }
+        /*
+                this.anims.create({
+                    key: 'nene_run',
+        
+                    frames: [
+                        { key: 'nene_1' },
+                        { key: 'nene_2' },
+                        { key: 'nene_3' },
+                        { key: 'nene_4' }
+                    ],
+        
+                    frameRate: 4,
+                    repeat: -1
+                });
+        
+        
+                this.anims.create({
+                    key: 'nena_run',
+        
+                    frames: [
+                        { key: 'nena_1' },
+                        { key: 'nena_2' },
+                        { key: 'nena_3' },
+                        { key: 'nena_4' }
+                    ],
+        
+                    frameRate: 4,
+                    repeat: -1
+                });
+        */
 
         this.scene.start('MenuScene');
     }
 
     createFallbackTextures() {
-        this.createPlayerTexture('player_nene', 0x2f8cff, 0xffffff, 0x222222);
-        this.createPlayerTexture('player_nena', 0xff70aa, 0xffffff, 0x552244);
+
+        if (!this.textures.exists('menu_nene')) {
+            this.createPlayerTexture(
+                'menu_nene',
+                0x2f8cff,
+                0xffffff,
+                0x222222
+            );
+        }
+
+        if (!this.textures.exists('menu_nena')) {
+            this.createPlayerTexture(
+                'menu_nena',
+                0xff70aa,
+                0xffffff,
+                0x552244
+            );
+        }
+
+        if (!this.textures.exists('game_nene')) {
+            this.createPlayerTexture(
+                'game_nene',
+                0x2f8cff,
+                0xffffff,
+                0x222222
+            );
+        }
+
+        if (!this.textures.exists('game_nena')) {
+            this.createPlayerTexture(
+                'game_nena',
+                0xff70aa,
+                0xffffff,
+                0x552244
+            );
+        }
+
         this.createGroundTexture();
         this.createBrickTexture();
         this.createQuestionTexture();
@@ -221,24 +293,49 @@ class MenuScene extends Phaser.Scene {
     }
 
     create() {
-        this.cameras.main.setBackgroundColor('#7ec8ff');
+        //this.cameras.main.setBackgroundColor('#e5ff7e');
+        // IMAGEN DE FONDO
+        this.add.image(
+            GAME_WIDTH / 2,
+            GAME_HEIGHT / 2,
+            'menu_background'
+        )
+            .setDisplaySize(
+                GAME_WIDTH,
+                GAME_HEIGHT
+            )
+            .setOrigin(0.5);
 
-        this.add.text(GAME_WIDTH / 2, 70, 'Mini Plataformero', {
-            fontFamily: 'Arial',
-            fontSize: '46px',
-            color: '#ffffff',
-            stroke: '#184a70',
-            strokeThickness: 7
-        }).setOrigin(0.5);
-
-        this.add.text(GAME_WIDTH / 2, 132, 'Elegí con quién jugar', {
+        /*
+                this.add.text(GAME_WIDTH / 2, 70, 'Mini Plataformero', {
+                    fontFamily: 'Arial',
+                    fontSize: '46px',
+                    color: '#ffffff',
+                    stroke: '#184a70',
+                    strokeThickness: 7
+                }).setOrigin(0.5);
+        */
+        this.add.text(GAME_WIDTH / 2, 132, 'Elegí tu personaje', {
             fontFamily: 'Arial',
             fontSize: '25px',
             color: '#15364e'
         }).setOrigin(0.5);
 
-        this.createCharacterCard(365, 290, 'player_nene', 'Nene');
-        this.createCharacterCard(595, 290, 'player_nena', 'Nena');
+        this.createCharacterCard(
+            365,
+            290,
+            'menu_nene',
+            'game_nene',
+            'Nene'
+        );
+
+        this.createCharacterCard(
+            595,
+            290,
+            'menu_nena',
+            'game_nena',
+            'Nena'
+        );
 
         this.add.text(GAME_WIDTH / 2, 465, 'Controles: ESPACIO para saltar · R para reiniciar', {
             fontFamily: 'Arial',
@@ -247,29 +344,73 @@ class MenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
     }
 
-    createCharacterCard(x, y, textureKey, labelText) {
-        const card = this.add.rectangle(x, y, 170, 210, 0xffffff, .9)
-            .setStrokeStyle(4, 0x184a70)
-            .setInteractive({ useHandCursor: true });
+    createCharacterCard(x, y, menuTexture, gameTexture, labelText) {
 
-        const sprite = this.add.image(x, y - 35, textureKey).setScale(1.7);
-        const label = this.add.text(x, y + 75, labelText, {
-            fontFamily: 'Arial',
-            fontSize: '24px',
-            color: '#15364e'
-        }).setOrigin(0.5);
+        const card = this.add.rectangle(
+            x,
+            y,
+            170,
+            210,
+            0xffffff,
+            .9
+        )
+            .setStrokeStyle(4, 0x184a70)
+            .setInteractive({
+                useHandCursor: true
+            });
+
+        const sprite = this.add.image(
+            x,
+            y - 35,
+            menuTexture
+        );
+
+        // Conserva proporción
+        sprite.setDisplaySize(
+            100,
+            120
+        );
+
+        const label = this.add.text(
+            x,
+            y + 75,
+            labelText,
+            {
+                fontFamily: 'Arial',
+                fontSize: '24px',
+                color: '#15364e'
+            }
+        ).setOrigin(0.5);
 
         const choose = () => {
-            selectedPlayer = textureKey;
+
+            selectedPlayer = gameTexture;
+
+            console.log(
+                'Seleccionado:',
+                selectedPlayer
+            );
+
             this.scene.start('GameScene');
         };
 
         card.on('pointerdown', choose);
-        sprite.setInteractive({ useHandCursor: true }).on('pointerdown', choose);
-        label.setInteractive({ useHandCursor: true }).on('pointerdown', choose);
 
-        card.on('pointerover', () => card.setFillStyle(0xffefad, 1));
-        card.on('pointerout', () => card.setFillStyle(0xffffff, .9));
+        sprite
+            .setInteractive({ useHandCursor: true })
+            .on('pointerdown', choose);
+
+        label
+            .setInteractive({ useHandCursor: true })
+            .on('pointerdown', choose);
+
+        card.on('pointerover', () => {
+            card.setFillStyle(0xffefad, 1);
+        });
+
+        card.on('pointerout', () => {
+            card.setFillStyle(0xffffff, .9);
+        });
     }
 }
 
@@ -412,11 +553,40 @@ class GameScene extends Phaser.Scene {
     }
 
     createPlayer() {
-        this.player = this.physics.add.sprite(120, 280, selectedPlayer);
+
+        this.player = this.physics.add.sprite(
+            120,
+            380,
+            selectedPlayer
+        );
+
+        /*
+         * No usamos setDisplaySize con valores arbitrarios
+         * gigantes.
+         *
+         * Forzamos un personaje chico.
+         */
+        const MAX_HEIGHT = 90;
+
+        const scale =
+            MAX_HEIGHT /
+            this.player.height;
+
+        this.player.setScale(scale);
+
+        /*
+         * Después de escalar visualmente,
+         * ajustamos el cuerpo físico.
+         */
+        this.player.body.setSize(
+            this.player.width * 0.45,
+            this.player.height * 0.80,
+            true
+        );
+
+        this.player.setBounce(0);
+
         this.player.setCollideWorldBounds(false);
-        this.player.setBounce(0.02);
-        this.player.body.setSize(30, 60);
-        this.player.body.setOffset(5, 4);
     }
 
     createEnemies() {
@@ -468,12 +638,27 @@ class GameScene extends Phaser.Scene {
     }
 
     createFlag() {
-        this.flag = this.add.image(5020, GAME_HEIGHT - 170, 'flag');
-        this.physics.add.existing(this.flag, true);
 
-        this.flagZone = this.physics.add.staticImage(5030, GAME_HEIGHT - 130, null);
-        this.flagZone.setVisible(false);
-        this.flagZone.body.setSize(80, 210);
+        // Bandera visible
+        this.flag = this.add.image(
+            5020,
+            GAME_HEIGHT - 170,
+            'flag'
+        );
+
+        // Zona invisible de victoria alrededor de la bandera
+        this.flagZone = this.add.zone(
+            5020,
+            GAME_HEIGHT - 160,
+            120,
+            300
+        );
+
+        // Agregar física estática a la zona
+        this.physics.add.existing(
+            this.flagZone,
+            true
+        );
     }
 
     createUI() {
@@ -506,17 +691,30 @@ class GameScene extends Phaser.Scene {
     }
 
     update() {
-        if (this.keys && Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+        if (
+            this.keys &&
+            Phaser.Input.Keyboard.JustDown(this.keys.R)
+        ) {
             this.scene.start('MenuScene');
             return;
         }
 
-        if (this.finished || this.dead) return;
+        if (this.finished || this.dead) {
+            return;
+        }
 
+        // LLEGÓ A LA BANDERA
+        if (this.player.x >= 4990) {
+            this.win();
+            return;
+        }
+
+        // Cayó del mapa
         if (this.player.y > GAME_HEIGHT + 120) {
             this.die();
             return;
         }
+
 
         const speed = 215;
         const jump = -570;
