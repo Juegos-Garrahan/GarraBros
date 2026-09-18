@@ -24,19 +24,42 @@
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
   }
   .wrap{
-    display:flex; align-items:center; justify-content:center;
-    min-height:100dvh; padding:16px;
+    width:100vw;
+    height:100dvh;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    padding:60px 10px 10px;
+    overflow:hidden;
   }
+
   #gameCanvas{
     display:block;
-    width:min(96vw, 1100px);
+
+    width:min(
+      calc(100vw - 20px),
+      calc((100dvh - 70px) * 1.6)
+    );
+
     height:auto;
-    image-rendering: crisp-edges;
-    image-rendering: pixelated;
+
+    aspect-ratio:16 / 10;
+
+    background:#000;
+
     border-radius:14px;
-    box-shadow: 0 30px 60px #0008, inset 0 0 0 1px #ffffff10;
-    background:#000; /* visible mientras carga mapa */
+
+    image-rendering:pixelated;
+
+    box-shadow:
+      0 30px 60px #0008,
+      inset 0 0 0 1px #ffffff10;
   }
+
+
+
 
   /* HUD flotante */
   .hud{
@@ -127,14 +150,53 @@
   }
   .big.win{ color:#34d399 }
   .big.lose{ color:#f87171 }
+  .home-btn{
+    position:fixed;
+
+    top:12px;
+    left:50%;
+    transform:translateX(-50%);
+
+    z-index:100;
+
+    padding:10px 20px;
+
+    border-radius:12px;
+    border:1px solid #ffffff25;
+
+    background:linear-gradient(180deg,#2563eb,#1d4ed8);
+    color:white;
+
+    font-size:15px;
+    font-weight:700;
+
+    cursor:pointer;
+
+    box-shadow:0 6px 18px #0008;
+
+    transition:
+      transform .12s ease,
+      filter .12s ease;
+  }
+
+  .home-btn:hover{
+    transform:translateX(-50%) translateY(-2px);
+    filter:brightness(1.1);
+  }
+
+  .home-btn:active{
+    transform:translateX(-50%) scale(.96);
+  }
+
 </style>
 </head>
 <body>
 <div class="wrap">
   <canvas id="gameCanvas" width="960" height="600" aria-label="Juego del laberinto 2D"></canvas>
 </div>
-<button onclick="window.location.href='index.html'">
-    🏠 Menú
+
+<button id="btnHome" class="home-btn" onclick="window.location.href='index.html'">
+  🏠 
 </button>
 
 <!-- HUD -->
@@ -157,26 +219,11 @@
   </div>
 </div>
 
-<!-- Tips -->
-<div class="tips panel">
-  <div class="dot" aria-hidden="true"></div>
-  <div style="font-size:13px; opacity:.9">
-    <b>Paredes visibles:</b> se resaltan con color <b>azul</b> a partir de los píxeles oscuros de <b>mapa.jpg</b>.
-    Si <b>mapa.jpg</b> no existe, se genera un hospital de ejemplo ganable.
-  </div>
-</div>
-
-<!-- Etiquetas decorativas de "hospital de niños" (se recolocan al cargar el mapa) -->
-<div id="badgePedi" class="badge" style="left:30%; top:20%">Pediatría</div>
-<div id="badgeVac" class="badge" style="left:75%; top:25%">Vacunación</div>
-<div id="badgeGame" class="badge" style="left:20%; top:70%">Sala de Juegos</div>
-<div id="badgeLab" class="badge" style="left:70%; top:70%">Laboratorio</div>
-
 <!-- Overlay: selección de personaje -->
 <div id="menu" class="overlay show" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
   <div class="dialog">
     <div class="title" id="menuTitle">Elige tu personaje</div>
-    <p class="sub"></p>
+    <p class="sub">🎯 Objetivo: llegar hasta el médico 👨‍⚕️</p>
     <div class="choices">
       <div id="pickMale" class="card" tabindex="0" role="button" aria-label="Elegir personaje masculino">
         <img id="imgMale" alt="Personaje masculino" />
@@ -189,12 +236,29 @@
         <div class="legenda">Agilidad y precisión</div>
       </div>
     </div>
+    <div class="choices">
+      <div id="mapDefault" class="card" onclick="selectMap('default')">
+        🟢
+        <div>Sin mapa</div>
+      </div>
+      <div id="mapHospital" class="card" onclick="selectMap('hospital')">
+        🏥
+        <div>Plano Hospital</div>
+      </div>
+      <div id="mapHard" class="card" onclick="selectMap('hard')">
+        🧩
+        <div>Laberinto Hospital</div>
+      </div>
+    </div>
+
     <div class="actions">
-      <button class="alt" id="btnTestMap">Probar mapa de ejemplo</button>
+      <button class="alt" id="btnTestMap"></button>
       <button id="btnStart" disabled>¡Jugar!</button>
     </div>
   </div>
 </div>
+
+
 
 <!-- Overlay: victoria -->
 <div id="win" class="overlay" role="dialog" aria-modal="true">
@@ -217,11 +281,15 @@
     </div>
   </div>
 </div>
+<div id="badgePedi" class="badge"></div>
+<div id="badgeVac" class="badge"></div>
+<div id="badgeGame" class="badge"></div>
+<div id="badgeLab" class="badge"></div>
 
 <script>
 /* ==========================================================
    Juego de laberinto 2D en un solo archivo (HTML+CSS+JS)
-   - Mapa y colisiones a partir de los píxeles de mapa.jpg
+   - Mapa y colisiones a partir de los píxeles de mapa.png
    - PAREDES VISIBLES: overlay azul generado desde el mapa
    - Personaje seleccionable (masculino/femenino)
    - Enemigos (virus) que rebotan y crecen con el tiempo
@@ -234,11 +302,12 @@ const CONFIG = {
   desiredCanvasWidth: 960,
   desiredCanvasHeight: 600,
   player: {
-    radius: 13,
-    speed: 210,         // px/seg
-    speedFemale: 230,   // femenino ligeramente más rápido
+    radius: 20,           // tamaño visual
+    collisionRadius: 8,  // tamaño usado para atravesar puertas
+    speed: 210,
+    speedFemale: 230,
     maxLife: 100,
-    iFrames: 0.35,      // invulnerabilidad breve tras golpe (seg)
+    iFrames: 0.35,
   },
   virus: {
     count: 15,
@@ -246,8 +315,8 @@ const CONFIG = {
     speedMax: 180,
     radiusMin: 10,
     radiusMax: 18,
-    growthMin: 2,   // px por minuto (se convierte a px/seg)
-    growthMax: 10,
+    growthMin: 4,   // px por minuto (se convierte a px/seg)
+    growthMax: 15,
     baseDPS: 15,     // daño por segundo base (ajustado para que se pueda ganar)
   },
   candy: {
@@ -283,7 +352,7 @@ const mapCtx = mapCanvas.getContext('2d', { willReadFrequently: true });
 let wallOverlayCanvas = null;
 let wallOverlayCtx = null;
 
-// Imagen del mapa (se intentará cargar mapa.jpg; si falla, se generará uno)
+// Imagen del mapa (se intentará cargar mapa.png; si falla, se generará uno)
 let mapImage = null;
 let collisionImageData = null; // ImageData con los píxeles del mapa
 let usingExampleMap = false;
@@ -303,7 +372,23 @@ let candies = [];
 let doctor = null;
 
 // Estado
-let keys = { w:false,a:false,s:false,d:false };
+let keys = {
+  w:false,
+  a:false,
+  s:false,
+  d:false,
+  up:false,
+  down:false,
+  left:false,
+  right:false
+};
+
+let mouseControl = {
+  active: false,
+  x: 0,
+  y: 0
+};
+
 let lastTime = 0;
 let running = false;
 let won = false;
@@ -323,6 +408,12 @@ const btnTestMap = document.getElementById('btnTestMap');
 
 // Elección de personaje
 let chosen = null; // 'male' | 'female'
+let selectedMap = 'hospital';
+
+
+let startPosition = null;
+let startMessageUntil = 0;
+
 
 /* ---------- Carga de sprites ---------- */
 function loadPlayerSprites(){
@@ -332,11 +423,11 @@ function loadPlayerSprites(){
 
     spriteMale.onload = ()=>{ maleLoaded = true; document.getElementById('imgMale').src = spriteMale.src; check(); };
     spriteMale.onerror = ()=>{ maleLoaded = false; generateFallbackPlayer('male'); check(); };
-    spriteMale.src = 'Laberinto/personaje_m.png';
+    spriteMale.src = 'images/personaje_m.png';
 
     spriteFemale.onload = ()=>{ femaleLoaded = true; document.getElementById('imgFemale').src = spriteFemale.src; check(); };
     spriteFemale.onerror = ()=>{ femaleLoaded = false; generateFallbackPlayer('female'); check(); };
-    spriteFemale.src = 'Laberinto/personaje_f.png';
+    spriteFemale.src = 'images/personaje_f.png';
   });
 }
 
@@ -422,7 +513,10 @@ function positionBadges(){
   set('badgeGame', .20, .70);
   set('badgeLab',  .70, .70);
 }
-window.addEventListener('resize', positionBadges);
+window.addEventListener('resize', ()=>{
+  positionBadges();
+});
+
 
 function isWall(x, y){
   if(!collisionImageData) return true;
@@ -485,15 +579,29 @@ function findFreeSpot(tries=500){
 
 /* Colisión círculo vs paredes: samplea en 10 puntos alrededor del círculo */
 function circleHitsWall(cx, cy, r){
-  const steps = 10;
-  for(let i=0;i<steps;i++){
-    const a = (i/steps) * Math.PI*2;
-    const px = cx + Math.cos(a)*r;
-    const py = cy + Math.sin(a)*r;
-    if(isWall(px,py)) return true;
+  // Más puntos = detección más precisa en puertas y esquinas
+  const steps = 24;
+
+  for(let i = 0; i < steps; i++){
+    const a = (i / steps) * Math.PI * 2;
+
+    const px = Math.round(cx + Math.cos(a) * r);
+    const py = Math.round(cy + Math.sin(a) * r);
+
+    if(isWall(px, py)){
+      return true;
+    }
   }
+
+  // También comprobamos el centro de cada lado
+  if(isWall(Math.round(cx + r), Math.round(cy))) return true;
+  if(isWall(Math.round(cx - r), Math.round(cy))) return true;
+  if(isWall(Math.round(cx), Math.round(cy + r))) return true;
+  if(isWall(Math.round(cx), Math.round(cy - r))) return true;
+
   return false;
 }
+
 
 /* Mueve un círculo con rebotito (para virus) revirtiendo ejes si pega pared */
 function moveBounce(ent, dt){
@@ -516,18 +624,64 @@ function moveBounce(ent, dt){
 /* Mueve al jugador (no atraviesa paredes) */
 function movePlayer(dt){
   if(!player) return;
-  let dx = (keys.d - keys.a), dy = (keys.s - keys.w);
-  // normalizar
-  let len = Math.hypot(dx,dy) || 1;
-  dx/=len; dy/=len;
+
+  let dx =
+    (keys.d || keys.right ? 1 : 0) -
+    (keys.a || keys.left  ? 1 : 0);
+
+  let dy =
+    (keys.s || keys.down ? 1 : 0) -
+    (keys.w || keys.up   ? 1 : 0);
+
+  // Control con mouse
+  if(dx === 0 && dy === 0 && mouseControl.active){
+
+    // mouseControl ya está expresado
+    // en coordenadas internas del canvas
+    const mouseX = mouseControl.x;
+    const mouseY = mouseControl.y;
+
+    dx = mouseX - player.x;
+    dy = mouseY - player.y;
+
+    const distance = Math.hypot(dx, dy);
+
+    if(distance > 5){
+      dx /= distance;
+      dy /= distance;
+    }else{
+      dx = 0;
+      dy = 0;
+    }
+  }
+
+  const len = Math.hypot(dx, dy);
+
+  if(len > 0){
+    dx /= len;
+    dy /= len;
+  }
+
   const sp = player.speed;
-  // eje X
-  let nx = player.x + dx * sp * dt;
-  if(!circleHitsWall(nx, player.y, player.r)) player.x = nx;
-  // eje Y
-  let ny = player.y + dy * sp * dt;
-  if(!circleHitsWall(player.x, ny, player.r)) player.y = ny;
+
+  const moveX = dx * sp * dt;
+  const moveY = dy * sp * dt;
+
+  const nextX = player.x + moveX;
+
+  if(!circleHitsWall(nextX, player.y, player.collisionRadius)){
+    player.x = nextX;
+  }
+
+  const nextY = player.y + moveY;
+
+  if(!circleHitsWall(player.x, nextY, player.collisionRadius)){
+    player.y = nextY;
+  }
 }
+
+
+
 
 /* Distancia sencilla */
 const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx, ay-by);
@@ -623,34 +777,109 @@ function isReachable(fromX, fromY, toX, toY){
 
 /* ---------- Carga y preparación del mapa ---------- */
 
-// Intenta cargar mapa.jpg. Si no existe, genera uno con look "hospital de niños".
+// Intenta cargar mapa.png. Si no existe, genera uno con look "hospital de niños".
 function loadMap(){
-  return new Promise(resolve=>{
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = ()=>{
-      usingExampleMap = false;
-      mapImage = img;
-      prepareMapFromImage(img);
-      resolve();
-    };
-    img.onerror = ()=>{
-      // Generar mapa de ejemplo
+  return new Promise(resolve => {
+
+
+    // =====================================
+    // SIN MAPA - mapa generado por defecto
+    // =====================================
+    if(selectedMap === 'default'){
+
       usingExampleMap = true;
-      const gen = generateHospitalExample(CONFIG.desiredCanvasWidth, CONFIG.desiredCanvasHeight);
-      mapImage = gen.display;           // para dibujar
-      collisionImageData = gen.collision; // para colisiones
-      mapCanvas.width = gen.collision.width;
-      mapCanvas.height = gen.collision.height;
+
+      const gen = generateHospitalExample(
+        CONFIG.desiredCanvasWidth,
+        CONFIG.desiredCanvasHeight
+      );
+
+      mapImage = gen.display;
+      collisionImageData = gen.collision;
+
+      canvas.width = mapCanvas.width = gen.collision.width;
+      canvas.height = mapCanvas.height = gen.collision.height;
+
       buildWallOverlay();
-      ctx.drawImage(mapImage, 0, 0);    // pinta algo mientras tanto
+
+      ctx.drawImage(mapImage, 0, 0);
+
+      positionBadges();
+
+      resolve();
+      return;
+    }
+
+    // =====================================
+    // MAPAS EXTERNOS
+    // =====================================
+
+    let mapPath = '';
+
+    if(selectedMap === 'hospital'){
+      mapPath = 'images/mapa_hospital.png';
+    }
+    else if(selectedMap === 'hard'){
+      mapPath = 'images/mapa_hospital_dificil.png';
+    }
+
+    console.log("Cargando:", mapPath);
+
+    // IMPORTANTE:
+    // Creamos img ANTES de usarlo
+    const img = new Image();
+
+    img.crossOrigin = "anonymous";
+
+    img.onload = function(){
+
+      console.log("Mapa cargado:", mapPath);
+
+      usingExampleMap = false;
+
+      mapImage = img;
+
+      prepareMapFromImage(img);
+
       resolve();
     };
-    img.src = 'Laberinto/mapa.jpg';
+
+    img.onerror = function(){
+
+      console.error("No se pudo cargar el mapa:", mapPath);
+
+      // Si no encuentra la imagen,
+      // usamos el mapa generado por defecto
+      usingExampleMap = true;
+
+      const gen = generateHospitalExample(
+        CONFIG.desiredCanvasWidth,
+        CONFIG.desiredCanvasHeight
+      );
+
+      mapImage = gen.display;
+      collisionImageData = gen.collision;
+
+      canvas.width = mapCanvas.width = gen.collision.width;
+      canvas.height = mapCanvas.height = gen.collision.height;
+
+      buildWallOverlay();
+
+      ctx.drawImage(mapImage, 0, 0);
+
+      positionBadges();
+
+      resolve();
+    };
+
+    // Finalmente cargamos la imagen
+    img.src = mapPath;
+
   });
 }
 
-/* A partir de una imagen de mapa (mapa.jpg), configura canvases y colisiones */
+
+/* A partir de una imagen de mapa (mapa.png), configura canvases y colisiones */
 function prepareMapFromImage(img){
   // Ajusta tamaño del canvas al del mapa
   canvas.width = mapCanvas.width = img.naturalWidth || img.width;
@@ -763,23 +992,37 @@ function generateHospitalExample(w,h){
 async function init(){
   buildMiscSprites();
   await loadPlayerSprites();
-  await loadMap();
-  // Ajusta tamaño visual del canvas (CSS) manteniendo proporciones
-  const maxW = Math.min(window.innerWidth*0.96, 1600);
-  const scale = Math.min(1, maxW / canvas.width);
-  canvas.style.width = (canvas.width * scale) + 'px';
-  canvas.style.height = 'auto';
+
   positionBadges();
+
   btnStart.disabled = false;
 }
+
 
 function placeEntities(){
   viruses = [];
   candies = [];
 
   // Posición inicial del jugador
-  const start = findFreeSpot(800);
-  player.x = start.x; player.y = start.y;
+  let start;
+  do {
+    start = findFreeSpot(800);
+  } while (
+    circleHitsWall(start.x, start.y, player.collisionRadius+2) || (start.x < 350 && start.y < 210)
+  );
+
+  player.x = start.x;
+  player.y = start.y;
+
+  startPosition = {
+    x: start.x,
+    y: start.y
+  };
+
+
+  // Mostrar mensaje durante 3 segundos
+  startMessageUntil = performance.now() + 3000;
+
 
   // Médico: garantizar alcanzable mediante BFS
   let candidate = null, tries = 0;
@@ -929,7 +1172,48 @@ function render(){
   }
 
   // Médico
-  ctx.drawImage(imgDoctor, doctor.x-20, doctor.y-28, 40, 56);
+// Médico 👨‍⚕️
+ctx.save();
+
+const pulse = 1 + Math.sin(performance.now() / 300) * 0.08;
+
+// Círculo verde detrás del médico
+ctx.globalAlpha = 0.25;
+ctx.beginPath();
+ctx.arc(
+  doctor.x,
+  doctor.y,
+  34 * pulse,
+  0,
+  Math.PI * 2
+);
+ctx.fillStyle = '#22c55e';
+ctx.fill();
+
+// Anillo verde
+ctx.globalAlpha = 0.9;
+ctx.beginPath();
+ctx.arc(
+  doctor.x,
+  doctor.y,
+  28 * pulse,
+  0,
+  Math.PI * 2
+);
+ctx.strokeStyle = '#86efac';
+ctx.lineWidth = 3;
+ctx.stroke();
+
+// Emoji del médico
+ctx.globalAlpha = 1;
+ctx.font = '48px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+
+ctx.fillText('👨‍⚕️', doctor.x, doctor.y);
+
+ctx.restore();
+
 
   // Virus
   for(const v of viruses){
@@ -952,7 +1236,112 @@ function render(){
   grd.addColorStop(0,'#0006'); grd.addColorStop(1,'#0003');
   ctx.fillStyle = grd; ctx.fillRect(0,0,canvas.width,8);
   ctx.fillRect(0,canvas.height-8,canvas.width,8);
+
+  // ---------- Mensaje de inicio sobre el personaje ----------
+  if(performance.now() < startMessageUntil && player){
+
+    const remaining = startMessageUntil - performance.now();
+
+    // Desaparece suavemente durante los últimos 700 ms
+    const fade = Math.min(1, remaining / 700);
+
+    ctx.save();
+
+    // El mensaje se coloca encima del personaje
+    const messageX = player.x;
+    const messageY = player.y - 75;
+
+    const boxWidth = 260;
+    const boxHeight = 68;
+
+    const boxX = messageX - boxWidth / 2;
+    const boxY = messageY - boxHeight / 2;
+
+    // Fondo del mensaje
+    ctx.globalAlpha = 0.92 * fade;
+
+    ctx.fillStyle = '#0f172a';
+
+    ctx.beginPath();
+    ctx.roundRect(
+      boxX,
+      boxY,
+      boxWidth,
+      boxHeight,
+      14
+    );
+    ctx.fill();
+
+    // Borde verde
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Texto principal
+    ctx.globalAlpha = fade;
+
+    ctx.font = 'bold 18px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.fillStyle = '#ffffff';
+
+    ctx.fillText(
+      '🟢 ¡COMIENZAS AQUÍ!',
+      messageX,
+      boxY + 23
+    );
+
+    // Subtexto
+    ctx.font = '14px system-ui';
+    ctx.fillStyle = '#d1d5db';
+
+    ctx.fillText(
+      'Encuentra al médico 👨‍⚕️',
+      messageX,
+      boxY + 48
+    );
+
+    // Pequeña flecha apuntando al personaje
+    ctx.fillStyle = '#22c55e';
+
+    ctx.beginPath();
+    ctx.moveTo(messageX - 8, boxY + boxHeight);
+    ctx.lineTo(messageX + 8, boxY + boxHeight);
+    ctx.lineTo(messageX, boxY + boxHeight + 12);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+
 }
+
+function selectMap(map){
+  selectedMap = map;
+
+  document.getElementById('mapDefault').style.borderColor = '#ffffff14';
+  document.getElementById('mapHospital').style.borderColor = '#ffffff14';
+  document.getElementById('mapHard').style.borderColor = '#ffffff14';
+
+  if(map === 'default'){
+    document.getElementById('mapDefault').style.borderColor = '#22c55e';
+  }
+
+  if(map === 'hospital'){
+    document.getElementById('mapHospital').style.borderColor = '#22c55e';
+  }
+
+  if(map === 'hard'){
+    document.getElementById('mapHard').style.borderColor = '#22c55e';
+  }
+
+  console.log('Mapa elegido:', selectedMap);
+}
+
+selectMap('hospital');
+
 
 /* ---------- Estados (win/lose/restart) ---------- */
 function win(){
@@ -966,29 +1355,188 @@ function lose(){
   overlayLose.classList.add('show');
 }
 function restart(){
+  // Detener la partida actual
+  running = false;
+
+  // Ocultar pantallas de resultado
   overlayWin.classList.remove('show');
   overlayLose.classList.remove('show');
+
+  // Mostrar selección de personaje
   overlayMenu.classList.add('show');
-  running=false;
-  chosen = null;
-  btnStart.disabled = true;
+
+  // Mantener el personaje seleccionado
+  // para poder volver a jugar directamente
+  if(chosen){
+    btnStart.disabled = false;
+  }else{
+    btnStart.disabled = true;
+  }
+
+  // Reiniciar estados
+  won = false;
+  lost = false;
+
+  // Reiniciar teclas
+  keys.w = false;
+  keys.a = false;
+  keys.s = false;
+  keys.d = false;
+
+  keys.up = false;
+  keys.down = false;
+  keys.left = false;
+  keys.right = false;
+
+  // Detener control del mouse
+  mouseControl.active = false;
 }
+
+
 
 /* ---------- Input ---------- */
 window.addEventListener('keydown', (e)=>{
   const k = e.key.toLowerCase();
-  if(k==='w') keys.w = true;
-  if(k==='a') keys.a = true;
-  if(k==='s') keys.s = true;
-  if(k==='d') keys.d = true;
+
+  if([
+    'arrowup',
+    'arrowdown',
+    'arrowleft',
+    'arrowright',
+    'w','a','s','d'
+  ].includes(k)){
+    e.preventDefault();
+  }
+
+  if(k === 'w' || k === 'arrowup'){
+    keys.w = true;
+    keys.up = true;
+  }
+
+  if(k === 's' || k === 'arrowdown'){
+    keys.s = true;
+    keys.down = true;
+  }
+
+  if(k === 'a' || k === 'arrowleft'){
+    keys.a = true;
+    keys.left = true;
+  }
+
+  if(k === 'd' || k === 'arrowright'){
+    keys.d = true;
+    keys.right = true;
+  }
 });
+
 window.addEventListener('keyup', (e)=>{
   const k = e.key.toLowerCase();
-  if(k==='w') keys.w = false;
-  if(k==='a') keys.a = false;
-  if(k==='s') keys.s = false;
-  if(k==='d') keys.d = false;
+
+  if(k === 'w' || k === 'arrowup'){
+    keys.w = false;
+    keys.up = false;
+  }
+
+  if(k === 's' || k === 'arrowdown'){
+    keys.s = false;
+    keys.down = false;
+  }
+
+  if(k === 'a' || k === 'arrowleft'){
+    keys.a = false;
+    keys.left = false;
+  }
+
+  if(k === 'd' || k === 'arrowright'){
+    keys.d = false;
+    keys.right = false;
+  }
 });
+/* ---------- Control con mouse ---------- */
+canvas.addEventListener('pointerdown', (e) => {
+  if(e.pointerType !== 'mouse') return;
+
+  mouseControl.active = true;
+
+  updatePointerPosition(e.clientX, e.clientY);
+
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if(!mouseControl.active) return;
+
+  updatePointerPosition(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('pointerup', (e) => {
+  mouseControl.active = false;
+
+  if(canvas.hasPointerCapture(e.pointerId)){
+    canvas.releasePointerCapture(e.pointerId);
+  }
+});
+
+
+window.addEventListener('blur', () => {
+  mouseControl.active = false;
+});
+
+
+/* ---------- Control táctil ---------- */
+canvas.addEventListener('touchstart', (e)=>{
+  e.preventDefault();
+
+  const touch = e.touches[0];
+
+  mouseControl.active = true;
+
+  updatePointerPosition(
+    touch.clientX,
+    touch.clientY
+  );
+}, {passive:false});
+
+canvas.addEventListener('touchmove', (e)=>{
+  e.preventDefault();
+
+  if(!mouseControl.active) return;
+
+  const touch = e.touches[0];
+
+  updatePointerPosition(
+    touch.clientX,
+    touch.clientY
+  );
+}, {passive:false});
+
+canvas.addEventListener('touchend', (e)=>{
+  e.preventDefault();
+  mouseControl.active = false;
+}, {passive:false});
+
+
+function updatePointerPosition(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+
+  const scale = Math.min(
+    rect.width / canvas.width,
+    rect.height / canvas.height
+  );
+
+  const displayedWidth = canvas.width * scale;
+  const displayedHeight = canvas.height * scale;
+
+  const offsetX = (rect.width - displayedWidth) / 2;
+  const offsetY = (rect.height - displayedHeight) / 2;
+
+  let x = (clientX - rect.left - offsetX) / scale;
+  let y = (clientY - rect.top - offsetY) / scale;
+
+  mouseControl.x = Math.max(0, Math.min(canvas.width, x));
+  mouseControl.y = Math.max(0, Math.min(canvas.height, y));
+}
+
 
 /* ---------- Menú / flujo de inicio ---------- */
 document.getElementById('pickMale').addEventListener('click', ()=>{
@@ -1006,19 +1554,32 @@ document.getElementById('pickFemale').addEventListener('click', ()=>{
 document.getElementById('pickMale').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') document.getElementById('pickMale').click(); });
 document.getElementById('pickFemale').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') document.getElementById('pickFemale').click(); });
 
-btnStart.addEventListener('click', ()=>{
+btnStart.addEventListener('click', async ()=>{
   if(!chosen) return;
   overlayMenu.classList.remove('show');
 
+  await loadMap();
+
   // Instancia de jugador
   player = {
-    x: 50, y: 50,
+    x: 50,
+    y: 50,
+
+    // Tamaño visual
     r: CONFIG.player.radius,
-    speed: chosen==='female' ? CONFIG.player.speedFemale : CONFIG.player.speed,
+
+    // Tamaño usado para colisiones
+    collisionRadius: CONFIG.player.collisionRadius,
+
+    speed: chosen==='female'
+      ? CONFIG.player.speedFemale
+      : CONFIG.player.speed,
+
     life: CONFIG.player.maxLife,
     sprite: chosen==='female' ? spriteFemale : spriteMale,
     iTimer: 0
   };
+
 
   placeEntities();
   lastTime = 0; won=false; lost=false; running=true;
@@ -1026,7 +1587,7 @@ btnStart.addEventListener('click', ()=>{
 });
 
 btnTestMap.addEventListener('click', async ()=>{
-  // Fuerza el mapa de ejemplo en caso de tener mapa.jpg, útil para probar
+  // Fuerza el mapa de ejemplo en caso de tener mapa.png, útil para probar
   usingExampleMap = true;
   const gen = generateHospitalExample(CONFIG.desiredCanvasWidth, CONFIG.desiredCanvasHeight);
   mapImage = gen.display;
