@@ -18,13 +18,13 @@ const cardsData=[
 
 {
 icon:"👩‍⚕️",
-image:"",
+image:"../images/doctora.png",
 text:"La doctora ayuda a que los niños estén sanos."
 },
 
 {
 icon:"👩‍⚕️",
-image:"",
+image:"../images/doctora.png",
 text:"La doctora ayuda a que los niños estén sanos."
 },
 
@@ -42,13 +42,13 @@ text:"Las enfermeras cuidan a los niños todos los días."
 
 {
 icon:"🧑‍🔬",
-image:"",
+image:"../images/doctor.png",
 text:"Los análisis ayudan a conocer mejor tu salud."
 },
 
 {
 icon:"🧑‍🔬",
-image:"",
+image:"../images/doctor.png",
 text:"Los análisis ayudan a conocer mejor tu salud."
 },
 
@@ -90,13 +90,13 @@ text:"Un corazón sano es una gran noticia."
 
 {
 icon:"🏥",
-image:"../images/hospital.png",
+image:"../images/perrito.png",
 text:"El hospital es un lugar para ayudarte."
 },
 
 {
 icon:"🏥",
-image:"../images/hospital.png",
+image:"../images/perrito.png",
 text:"El hospital es un lugar para ayudarte."
 },
 
