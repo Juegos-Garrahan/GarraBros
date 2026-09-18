@@ -1,0 +1,15 @@
+ body {
+     margin: 0;
+     background: #111;
+     font-family: Arial, sans-serif;
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     min-height: 100vh;
+     color: white;
+ }
+
+ #game-container {
+     border: 4px solid rgba(255, 255, 255, .25);
+     box-shadow: 0 0 30px rgba(0, 0, 0, .7);
+ }
