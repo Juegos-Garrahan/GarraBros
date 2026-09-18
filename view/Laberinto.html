@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laberinto 2D: ¡Busca al médico!</title>
+    <link rel="stylesheet" href="../css/laberinto.css">
+</head>
+<body>
+<div class="wrap">
+  <canvas id="gameCanvas" width="960" height="600" aria-label="Juego del laberinto 2D"></canvas>
+</div>
+
+<button id="btnHome" class="home-btn" onclick="window.location.href='../index.html'">
+  🏠 
+</button>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="panel">
+    <div class="row" style="gap:16px; align-items:center">
+      <div style="min-width:86px">Vida</div>
+      <div class="bar" title="Vida del personaje"><i id="lifeFill" style="width:100%"></i></div>
+      <div class="pill" title="Caramelos restantes">
+        🍬 <span id="candiesLeft">0</span>
+      </div>
+      <div class="pill" title="Estado">
+        🧪 Virus: <span id="virusCount">0</span>
+      </div>
+    </div>
+    <div class="legenda" style="margin-top:6px">
+      Mueve con <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span>.
+      Encuentra al 👨‍⚕️/👩‍⚕️ sin quedarte sin vida. Evita a los virus 😷.
+    </div>
+  </div>
+</div>
+
+<!-- Overlay: selección de personaje -->
+<div id="menu" class="overlay show" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+  <div class="dialog">
+    <div class="title" id="menuTitle">Elige tu personaje</div>
+    <p class="sub">🎯 Objetivo: llegar hasta el médico 👨‍⚕️</p>
+    <div class="choices">
+      <div id="pickMale" class="card" tabindex="0" role="button" aria-label="Elegir personaje masculino">
+        <img id="imgMale" alt="Personaje masculino" />
+        <div style="font-weight:700; margin-top:8px">Personaje Amarillo</div>
+        <div class="legenda">Fuerza y velocidad equilibradas</div>
+      </div>
+      <div id="pickFemale" class="card" tabindex="0" role="button" aria-label="Elegir personaje femenino">
+        <img id="imgFemale" alt="Personaje femenino" />
+        <div style="font-weight:700; margin-top:8px">Personaje Azul</div>
+        <div class="legenda">Agilidad y precisión</div>
+      </div>
+    </div>
+    <div class="choices">
+      <div id="mapDefault" class="card" onclick="selectMap('default')">
+        🟢
+        <div>Sin mapa</div>
+      </div>
+      <div id="mapHospital" class="card" onclick="selectMap('hospital')">
+        🏥
+        <div>Plano Hospital</div>
+      </div>
+      <div id="mapHard" class="card" onclick="selectMap('hard')">
+        🧩
+        <div>Laberinto Hospital</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="alt" id="btnTestMap"></button>
+      <button id="btnStart" disabled>¡Jugar!</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Overlay: victoria -->
+<div id="win" class="overlay" role="dialog" aria-modal="true">
+  <div class="dialog" style="text-align:center">
+    <div class="big win">¡Ganaste! 🎉</div>
+    <p>Llegaste con éxito al médico. ¡Bien hecho!</p>
+    <div class="actions" style="justify-content:center">
+      <button onclick="restart()">Jugar de nuevo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay: derrota -->
+<div id="lose" class="overlay" role="dialog" aria-modal="true">
+  <div class="dialog" style="text-align:center">
+    <div class="big lose">Perdiste</div>
+    <p>¡Inténtalo otra vez!</p>
+    <div class="actions" style="justify-content:center">
+      <button onclick="restart()">Reintentar</button>
+    </div>
+  </div>
+</div>
+<div id="badgePedi" class="badge"></div>
+<div id="badgeVac" class="badge"></div>
+<div id="badgeGame" class="badge"></div>
+<div id="badgeLab" class="badge"></div>
+
+<script src="../js/laberinto.js"></script>
+</body>
+</html>

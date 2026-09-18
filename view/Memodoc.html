@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Memotest Hospitalario</title>
+<link rel="stylesheet" href="../css/memodoc.css">
+</head>
+<body>
+
+<a href="../index.html" id="homeButton">
+🏠 Menú Principal
+</a>
+
+<h1>🏥 Memotest de los Héroes de la Salud</h1>
+
+<div id="players">
+
+<div class="player active" id="p1">
+<span id="avatar1"></span>
+Tomi:
+<span id="score1">0</span>
+</div>
+
+<div class="player" id="p2">
+<span id="avatar2"></span>
+Luna:
+<span id="score2">0</span>
+</div>
+
+</div>
+
+<div id="message">
+👀 Memoriza las cartas.
+</div>
+
+<div id="board"></div>
+
+<div id="winner">
+    <h2 id="winnerText"></h2>
+
+    <button onclick="location.reload()">
+        Jugar otra vez
+    </button>
+</div>
+
+<script src="../js/memodoc.js"></script>
+</body>
+</html>
